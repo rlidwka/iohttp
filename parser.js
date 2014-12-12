@@ -119,7 +119,11 @@ function* parse_request(writer) {
       // CRLF | LF
       if (ch === 0x0D) {
         if (++pos >= len) next(yield)
-        if (buf[pos] === 0x0A) break
+        if (buf[pos] === 0x0A) {
+          break
+        } else { // only LF expected after CR
+          return Error('Invalid header')
+        }
       } else if (ch === 0x0A) {
         break
       }
