@@ -1,37 +1,12 @@
 var assert     = require('assert')
 var HTTPParser = require('../')
 
-function addTest(chunks, expect) {
-  var base =
-    { method: 'GET',
-      url: '/',
-      http_major: 1,
-      http_minor: 0,
-      headers: [] }
-
-  for (var i in expect) base[i] = expect[i]
-
-  if (!Array.isArray(chunks)) chunks = [ chunks ]
-
-  var responded = false
-  var parser = new HTTPParser(HTTPParser.REQUEST)
-  parser[1] = function(parsed) {
-    assert.deepEqual(base, parsed)
-    responded = true
-  }
-
-  chunks.forEach(function(chunk) {
-    var err = parser.execute(typeof(chunk) === 'string' ? Buffer(chunk) : chunk)
-    if (err) {
-      assert.strictEqual(err.message, expect.message)
-      responded = true
-    }
-  })
-
-  process.nextTick(function() {
-    assert(responded, "parser didn't respond to " + JSON.stringify(chunks))
-  })
-}
+var addTest    = require('./_utils').testFactory(
+  { method: 'GET',
+    url: '/',
+    http_major: 1,
+    http_minor: 0,
+    headers: [] })
 
 // normal request
 addTest('GET / HTTP/1.0\n\n', {})
