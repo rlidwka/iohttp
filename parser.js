@@ -175,6 +175,7 @@ function* parse_request(writer) {
           if (++pos >= len) next(yield)
           continue
         }
+        ch = buf[pos]
       }
 
       // some control char or \n
