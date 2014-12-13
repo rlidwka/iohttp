@@ -6,6 +6,8 @@ function* parse_request(writer) {
 
   // this function is executed every time a new data comes in;
   // basically, it's helper for resetting position and length
+  //
+  // javascript really needs macro
   function next(b) { pos = 0, len = b.length, buf = b }
 
   // get the first chunk of data
@@ -19,13 +21,14 @@ function* parse_request(writer) {
   var flush = writer.flush
 
   // return value of the generator;
-  // we return either this or an Error
+  // we return either this or an Error instance
   var result = {
     method     : null,
     url        : null,
     http_major : -1,
     http_minor : -1,
     headers    : [],
+    remain     : null,
   }
 
   /*
@@ -37,7 +40,7 @@ function* parse_request(writer) {
   // parse http method until we stumble across non-token char
   //
   // GET /whatever HTTP/1.0
-  // ^^^-- this
+  // ^^^-- this is it in case you didn't notice
   while (is_token[ch = buf[pos]]) {
     add(ch)
     if (++pos >= len) next(yield)
@@ -80,6 +83,9 @@ function* parse_request(writer) {
     //
     // note: joyent/http-parser allows version up to 999,
     //       but newer rfc restricts it to one digit
+    //
+    //       (HTTP/xxx.x will be parsed by a quantum computer
+    //        anyway, and javascript doesn't work on those)
     ch = buf[pos]
     if (!(0x30 <= ch && ch <= 0x39)) break VER
     result.http_major = buf[pos] - 0x30
@@ -96,6 +102,8 @@ function* parse_request(writer) {
     // parse patch HTTP ve... oh wait, I forgot, only npm stuff uses semver
 
     // CRLF | LF
+    // Here an everywhere else we're making "\r" optional, because it's
+    // very inconvenient to debug http servers with `nc` otherwise.
     if (buf[pos] === 0x0D) if (++pos >= len) next(yield)
     if (buf[pos] === 0x0A) {
       request_line_correct = true
@@ -129,13 +137,13 @@ function* parse_request(writer) {
       }
 
       // garbage
-      if (!request_line_correct) return Error('Invalid header')
+      return Error('Invalid header')
     }
 
     // we found a header, try to parse its field-name
     //
     // Content-type: text/whatever
-    // ^^^^^^^^^^^^ this
+    // ^^^^^^^^^^^^ here it is
     add(ch)
     if (++pos >= len) next(yield)
     while (is_token[ch = buf[pos]]) {
@@ -145,7 +153,7 @@ function* parse_request(writer) {
     headers.push(flush())
 
     // Content-type: text/whatever
-    //             ^ check that
+    //             ^ check that thing
     if (ch !== 0x3a /* : */) return Error('Invalid header')
     if (++pos >= len) next(yield)
 
@@ -156,7 +164,7 @@ function* parse_request(writer) {
       ch = buf[pos]
     }
 
-    // this loops through field-vchars array
+    // loop through field-vchars array
     //
     // Accept: foo, bar, baz
     //         ^^^^^^^^^^^^^ here
@@ -169,7 +177,10 @@ function* parse_request(writer) {
       if (ch === 0x20 || ch === 0x09) {
         if (++pos >= len) next(yield)
         if (buf[pos] > 0x20 && buf[pos] !== 0x7f) {
-          // multiple values, separated by an exactly one WS
+          // multiple values, separated by an exactly one WS;
+          //
+          // I wonder how much time until somebody finds two-space
+          // separated header value out there?
           add(ch)
           add(buf[pos])
           if (++pos >= len) next(yield)
@@ -204,6 +215,9 @@ function* parse_request(writer) {
     return Error('Invalid header')
   }
 
+  if (++pos < len) {
+    result.remain = buf.slice(pos)
+  }
   return result
 }
 

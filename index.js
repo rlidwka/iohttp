@@ -55,8 +55,18 @@ HTTPParser.prototype.execute = function(data) {
       this.error = value
       return value
     } else {
+      if (value.remain) {
+        var t = value.remain
+        value.remain = null
+      }
+
       this[1](value)
       this[3]()
+
+      if (t) {
+        this.reinitialize(this.type)
+        return this.execute(t)
+      }
     }
   }
 }
