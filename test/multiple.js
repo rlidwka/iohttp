@@ -13,7 +13,7 @@ var defaults =
       'Host',
       'iojs.org',
     ],
-    remain: null }
+    content_len: 0 }
 
 function reset() {
   parser   = new HTTPParser(HTTPParser.REQUEST)
@@ -83,4 +83,22 @@ reset()
 expect({ url: '/1' })
 expect(Error('Invalid HTTP method'))
 execute('GET /1 HTTP/1.1\nHost: iojs.org\n\n@')
+
+// help people whose cat is sleeping on the "enter" key
+reset()
+expect({ url: '/1' })
+execute('\n\n\n\nGET /1 HTTP/1.1\nHost: iojs.org\n\n')
+
+reset()
+expect({ url: '/1' })
+execute('\r\n\r\nGET /1 HTTP/1.1\nHost: iojs.org\n\n')
+
+reset()
+expect({ url: '/1' })
+expect({ url: '/2', headers: [] })
+execute('GET /1 HTTP/1.1\nHost: iojs.org\n\n\n\n\nGET /2 HTTP/1.1\n\n')
+
+reset()
+expect(Error('Invalid HTTP method'))
+execute('\r\r')
 

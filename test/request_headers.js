@@ -12,7 +12,7 @@ var addTest    = require('./_utils').testFactory(
       'foo',
       'bar',
     ],
-    remain: null })
+    content_len: 0 })
 
 // normal request
 addTest('GET / HTTP/1.1\nHost: iojs.org\nfoo: bar\n\n', {})

@@ -1,14 +1,12 @@
 
-module.exports.parse_request = parse_request
-
-function* parse_request(writer) {
+module.exports.parse_request = function* parse_request(writer) {
   var pos, len, buf, ch
 
   // this function is executed every time a new data comes in;
   // basically, it's helper for resetting position and length
   //
   // javascript really needs macro
-  function next(b) { pos = 0, len = b.length, buf = b }
+  function next(b) { pos = b.start, len = b.length, buf = b }
 
   // get the first chunk of data
   next(yield)
@@ -23,12 +21,12 @@ function* parse_request(writer) {
   // return value of the generator;
   // we return either this or an Error instance
   var result = {
-    method     : null,
-    url        : null,
-    http_major : -1,
-    http_minor : -1,
-    headers    : [],
-    remain     : null,
+    method      : null,
+    url         : null,
+    http_major  : -1,
+    http_minor  : -1,
+    headers     : [],
+    content_len : 0, // -1 for chunked
   }
 
   /*
@@ -36,6 +34,22 @@ function* parse_request(writer) {
    *
    *  http://tools.ietf.org/html/rfc7230#section-3.1.1
    */
+
+  // skip linebreaks before request line
+  while (true) {
+    ch = buf[pos]
+    if (ch === 0x0D) {
+      if (++pos >= len) next(yield)
+      if (buf[pos] === 0x0A) {
+        if (++pos >= len) next(yield)
+        continue
+      }
+    } else if (ch === 0x0A) {
+      if (++pos >= len) next(yield)
+      continue
+    }
+    break
+  }
 
   // parse http method until we stumble across non-token char
   //
@@ -112,13 +126,16 @@ function* parse_request(writer) {
 
   if (!request_line_correct) return Error('Invalid HTTP version')
 
+  if (++pos >= len) next(yield)
+
   /*
    *  Parse headers into an array
    *
+   *  Headers will be parsed in the first invocation of the loop,
+   *  and trailers (if any) will be parsed in the second one.
+   *
    *  http://tools.ietf.org/html/rfc7230#section-3.2
    */
-  if (++pos >= len) next(yield)
-
   var headers = result.headers
   while (true) {
     var ch = buf[pos]
@@ -150,7 +167,8 @@ function* parse_request(writer) {
       add(ch)
       if (++pos >= len) next(yield)
     }
-    headers.push(flush())
+    var last_header = flush()
+    headers.push(last_header)
 
     // Content-type: text/whatever
     //             ^ check that thing
@@ -192,7 +210,17 @@ function* parse_request(writer) {
       // some control char or \n
       break
     }
-    headers.push(flush())
+
+    var t = flush()
+    headers.push(t)
+    switch (last_header.toLowerCase()) {
+      case 'content-length':
+        if (t.match(/^\d+$/)) result.content_len = parseInt(t, 10)
+        break
+      case 'transfer-encoding':
+        if (t === 'chunked') result.content_len = -1
+        break
+    }
 
     // OWS again
     while (ch === 0x20 || ch === 0x09) {
@@ -216,9 +244,92 @@ function* parse_request(writer) {
   }
 
   if (++pos < len) {
-    result.remain = buf.slice(pos)
+    buf.start = pos
   }
   return result
+}
+
+module.exports.parse_body = function* parse_body(content_length) {
+  var pos, len, buf, ch
+  function next(b) { pos = b.start, len = b.length, buf = b }
+
+  // get the first chunk of data
+  next(yield)
+
+  /*
+   *  Now parsing content body
+   */
+  if (content_length > 0) {
+    // read N bytes and re-emit them as data chunks
+    var length = content_length
+
+    do {
+      var rem_len = len - pos
+      if (rem_len > length) {
+        buf.start = pos + length
+        return buf.slice(pos, pos + length)
+      } else if (rem_len === length) {
+        return pos ? buf.slice(pos) : buf
+      } else {
+        next(yield buf.slice(pos))
+        length -= rem_len
+      }
+    } while (length > 0)
+
+  } else {
+    while (true) {
+      // chunked encoding
+      var length = dehex[buf[pos]]
+      if (length === 255) return Error('Invalid chunk')
+      while (true) {
+        if (++pos >= len) next(yield)
+        var ch = buf[pos]
+        var dec = dehex[ch]
+        if (dec === 255) break
+        length = length * 16 + dec
+      }
+
+      if (ch === 0x0D) {
+        if (++pos >= len) next(yield)
+        if (buf[pos] !== 0x0A) {
+          return Error('Invalid chunk')
+        }
+      } else if (ch === 0x0A) {
+        return Error('Invalid chunk')
+      }
+
+      if (++pos >= len) next(yield)
+      if (length === 0) { return }
+
+      do {
+        var rem_len = len - pos
+        if (rem_len > length) {
+          buf.start = pos + length
+          next(yield buf.slice(pos, pos + length))
+        } else if (rem_len === length) {
+          next(yield (pos ? buf.slice(pos) : buf))
+        } else {
+          next(yield buf.slice(pos))
+        }
+        length -= rem_len
+      } while (length > 0)
+
+      // previous code points pos at the next char, not as usual
+      pos--
+
+      if (++pos >= len) next(yield)
+      ch = buf[pos]
+      if (ch === 0x0D) {
+        if (++pos >= len) next(yield)
+        if (buf[pos] !== 0x0A) {
+          return Error('Invalid chunk')
+        }
+      } else if (ch === 0x0A) {
+        return Error('Invalid chunk')
+      }
+      if (++pos >= len) next(yield)
+    }
+  }
 }
 
 //
@@ -231,4 +342,15 @@ is_token.fill(0)
 "!#$%&'*+-.^_`|~0123456789QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnm"
   .split('').forEach(function (chr) {
     is_token[chr.charCodeAt(0)] = 1
+  })
+
+//
+// Stuff for hexadecimal decoding
+//
+var dehex = Buffer(256)
+dehex.fill(255)
+
+'0123456789ABCDEFabcdef'
+  .split('').forEach(function (chr) {
+    dehex[chr.charCodeAt(0)] = parseInt(chr, 16)
   })

@@ -1,4 +1,5 @@
 var parse_request = require('./parser').parse_request
+var parse_body = require('./parser').parse_body
 
 module.exports = HTTPParser
 
@@ -37,37 +38,56 @@ HTTPParser.prototype.reinitialize = function(type) {
   this.parser = parse_request(this.writer)
   this.parser.next()
 
-  this.type   = type
-  this.error  = null
+  this.stage = 0
+  this.type  = type
+  this.error = null
 }
 
 HTTPParser.prototype.close = function() {
   throw Error('unimplemented')
 }
 
-HTTPParser.prototype.execute = function(data) {
+HTTPParser.prototype.execute = function(data, start) {
   if (this.error !== null) return this.error
 
+  start = start || 0
+  data.start = start
   var result = this.parser.next(data)
-  if (result.done) {
-    var value = result.value
-    if (value instanceof Error) {
-      this.error = value
-      return value
-    } else {
-      if (value.remain) {
-        var t = value.remain
-        value.remain = null
+  var value = result.value
+  if (result.done && value instanceof Error) {
+    this.error = value
+    return value
+  }
+
+  if (value) {
+    if (this.stage === 0) {
+      this[1](value)
+      if (!value.content_len) {
+        this[3]()
+        this.reinitialize()
+      } else {
+        this.stage++
+        this.parser = parse_body(value.content_len)
+        this.parser.next()
       }
 
-      this[1](value)
-      this[3]()
+      if (data.start !== start) {
+        return this.execute(data, data.start)
+      }
+    } else if (this.stage === 1) {
+      this[2](value)
+      if (result.done) {
+        this[3]()
+        this.reinitialize()
+      }
 
-      if (t) {
-        this.reinitialize(this.type)
-        return this.execute(t)
+      if (data.start !== start) {
+        return this.execute(data, data.start)
       }
     }
+  } else if (result.done) {
+    this[3]()
+    this.reinitialize()
   }
 }
 

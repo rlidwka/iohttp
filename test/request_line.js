@@ -7,7 +7,7 @@ var addTest    = require('./_utils').testFactory(
     http_major: 1,
     http_minor: 0,
     headers: [],
-    remain: null })
+    content_len: 0 })
 
 // normal request
 addTest('GET / HTTP/1.0\n\n', {})
