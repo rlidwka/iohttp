@@ -59,8 +59,20 @@ HTTPParser.prototype.execute = function(data, start) {
     return value
   }
 
-  if (value) {
-    if (this.stage === 0) {
+  /*
+   *  Here is a small state machine to bounce requests between
+   *  respective generators.
+   *
+   *  states:
+   *   0 - parsing request/response line + headers
+   *   1 - parsing content body
+   *   2 - parsing trailers
+   *
+   *  Thou shalt accept this mess in the name of performance.
+   */
+  if (this.stage === 0) {
+    // this generator always returns exactly one value
+    if (value) {
       this[1](value)
       if (!value.content_len) {
         this[3]()
@@ -70,24 +82,23 @@ HTTPParser.prototype.execute = function(data, start) {
         this.parser = parse_body(value.content_len)
         this.parser.next()
       }
-
-      if (data.start !== start) {
-        return this.execute(data, data.start)
-      }
-    } else if (this.stage === 1) {
-      this[2](value)
-      if (result.done) {
-        this[3]()
-        this.reinitialize()
-      }
-
-      if (data.start !== start) {
-        return this.execute(data, data.start)
-      }
     }
-  } else if (result.done) {
-    this[3]()
-    this.reinitialize()
+  } else if (this.stage === 1) {
+    // this generator can end without a value
+    if (value) this[2](value)
+
+    if (result.done) {
+      this[3]()
+      this.reinitialize()
+    }
+  }
+
+  // Generators may modify data.start to indicate that there
+  // is some data yet to be processed in this buffer.
+  //
+  // I admit, it's a dirty hack.
+  if (data.start !== start) {
+    return this.execute(data, data.start)
   }
 }
 

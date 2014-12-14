@@ -260,7 +260,8 @@ module.exports.parse_body = function* parse_body(content_length) {
    *  Now parsing content body
    */
   if (content_length > 0) {
-    // read N bytes and re-emit them as data chunks
+    // Your old and boring fixed content-length,
+    // just read N bytes and re-emit them as data chunks
     var length = content_length
 
     do {
@@ -278,7 +279,7 @@ module.exports.parse_body = function* parse_body(content_length) {
 
   } else {
     while (true) {
-      // chunked encoding
+      // Chunked encoding
       var length = dehex[buf[pos]]
       if (length === 255) return Error('Invalid chunk')
       while (true) {
@@ -287,6 +288,14 @@ module.exports.parse_body = function* parse_body(content_length) {
         var dec = dehex[ch]
         if (dec === 255) break
         length = length * 16 + dec
+      }
+
+      if (ch === 0x3b /* ; */) {
+        // chunk extensions...? really? o_O
+        do {
+          if (++pos >= len) next(yield)
+          ch = buf[pos]
+        } while (ch !== 0x0D && ch !== 0x0A)
       }
 
       if (ch === 0x0D) {
@@ -345,7 +354,8 @@ is_token.fill(0)
   })
 
 //
-// Stuff for hexadecimal decoding
+// Stuff for dehexadecimalization
+// (I wonder how fast people would read that word)
 //
 var dehex = Buffer(256)
 dehex.fill(255)
