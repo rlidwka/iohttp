@@ -303,12 +303,15 @@ module.exports.parse_body = function* parse_body(content_length) {
         if (buf[pos] !== 0x0A) {
           return Error('Invalid chunk')
         }
-      } else if (ch === 0x0A) {
+      } else if (ch !== 0x0A) {
         return Error('Invalid chunk')
       }
 
+      if (length === 0) {
+        buf.start = pos + 1
+        return
+      }
       if (++pos >= len) next(yield)
-      if (length === 0) { return }
 
       do {
         var rem_len = len - pos
@@ -333,7 +336,7 @@ module.exports.parse_body = function* parse_body(content_length) {
         if (buf[pos] !== 0x0A) {
           return Error('Invalid chunk')
         }
-      } else if (ch === 0x0A) {
+      } else if (ch !== 0x0A) {
         return Error('Invalid chunk')
       }
       if (++pos >= len) next(yield)

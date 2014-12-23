@@ -97,7 +97,7 @@ HTTPParser.prototype.execute = function(data, start) {
   // is some data yet to be processed in this buffer.
   //
   // I admit, it's a dirty hack.
-  if (data.start !== start) {
+  if (data.start !== start && data.start < data.length) {
     return this.execute(data, data.start)
   }
 }
