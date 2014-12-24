@@ -21,12 +21,15 @@ module.exports.parse_request = function* parse_request(writer) {
   // return value of the generator;
   // we return either this or an Error instance
   var result = {
-    method      : null,
-    url         : null,
-    http_major  : -1,
-    http_minor  : -1,
-    headers     : [],
-    content_len : 0, // -1 for chunked
+    method          : 0,
+    methodString    : null,
+    url             : null,
+    versionMajor    : -1,
+    versionMinor    : -1,
+    headers         : [],
+    contentLength   : 0, // -1 for chunked
+    shouldKeepAlive : true,
+    upgrade         : false,
   }
 
   /*
@@ -66,7 +69,7 @@ module.exports.parse_request = function* parse_request(writer) {
   //       but newer rfc restricts it to one space only
   if (ch !== 0x20) return Error('Invalid HTTP method')
   if (++pos >= len) next(yield)
-  result.method = flush()
+  result.methodString = flush()
 
   // parse http url, just wait until a non-printable char
   // or a space comes out
@@ -102,7 +105,7 @@ module.exports.parse_request = function* parse_request(writer) {
     //        anyway, and javascript doesn't work on those)
     ch = buf[pos]
     if (!(0x30 <= ch && ch <= 0x39)) break VER
-    result.http_major = buf[pos] - 0x30
+    result.versionMajor = buf[pos] - 0x30
     if (++pos >= len) next(yield)
 
     if (buf[pos] !== 0x2e /* . */) break VER ; if (++pos >= len) next(yield)
@@ -110,7 +113,7 @@ module.exports.parse_request = function* parse_request(writer) {
     // parse minor HTTP version
     ch = buf[pos]
     if (!(0x30 <= ch && ch <= 0x39)) break VER
-    result.http_minor = buf[pos] - 0x30
+    result.versionMinor = buf[pos] - 0x30
     if (++pos >= len) next(yield)
 
     // parse patch HTTP ve... oh wait, I forgot, only npm stuff uses semver
@@ -215,10 +218,10 @@ module.exports.parse_request = function* parse_request(writer) {
     headers.push(t)
     switch (last_header.toLowerCase()) {
       case 'content-length':
-        if (t.match(/^\d+$/)) result.content_len = parseInt(t, 10)
+        if (t.match(/^\d+$/)) result.contentLength = parseInt(t, 10)
         break
       case 'transfer-encoding':
-        if (t === 'chunked') result.content_len = -1
+        if (t === 'chunked') result.contentLength = -1
         break
     }
 

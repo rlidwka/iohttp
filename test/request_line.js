@@ -1,19 +1,23 @@
 var assert     = require('assert')
 var HTTPParser = require('../')
 
-var addTest    = require('./_utils').testFactory(
-  { method: 'GET',
-    url: '/',
-    http_major: 1,
-    http_minor: 0,
-    headers: [],
-    content_len: 0 })
+var addTest    = require('./_utils').testFactory({
+  method          : 1,
+  methodString    : 'GET',
+  url             : '/',
+  versionMajor    : 1,
+  versionMinor    : 0,
+  headers         : [],
+  contentLength   : 0,
+  shouldKeepAlive : true,
+  upgrade         : false,
+})
 
 // normal request
 addTest('GET / HTTP/1.0\n\n', {})
 
 // options
-addTest('OPTIONS * HTTP/1.0\n\n', { method: 'OPTIONS', url: '*' })
+addTest('OPTIONS * HTTP/1.0\n\n', { method: 6, methodString: 'OPTIONS', url: '*' })
 
 // cr... cr... crap, why don't everyone just use lf
 addTest('GET / HTTP/1.0\r\n\r\n', {})
@@ -21,20 +25,17 @@ addTest('GET / HTTP/1.0\n\r\n',   {})
 addTest('GET / HTTP/1.0\r\n\n',   {})
 addTest('GET / HTTP/1.0\r\r',     Error('Invalid HTTP version'))
 
-// custom method
-addTest('CUSTOMMETHOD / HTTP/1.0\n\n', { method: 'CUSTOMMETHOD' })
-
 // version check; we're taking bets on when it'll go live
-addTest('GET / HTTP/8.9\n\n',  { http_major: 8, http_minor: 9 })
+addTest('GET / HTTP/8.9\n\n',  { versionMajor: 8, versionMinor: 9 })
 addTest('GET / HTTP/A.9',  Error('Invalid HTTP version'))
 addTest('GET / HTTP/10.0', Error('Invalid HTTP version'))
 
 // lowercase stuff
-addTest('get / HTTP/1.0\n\n',  { method: 'get' })
-addTest('GET / http/',  Error('Invalid HTTP version'))
+addTest('get / HTTP/1.0\n\n', Error('Method not supported'))
+addTest('GET / http/',        Error('Invalid HTTP version'))
 
 // did somebody just take url for dinner?
-addTest('GET  HTTP',   Error('Invalid URL'))
+addTest('GET  HTTP', Error('Invalid URL'))
 
 // custom url
 addTest('GET /foo/bar/baz/quux HTTP/1.0\n\n', { url: '/foo/bar/baz/quux' })

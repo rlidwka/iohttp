@@ -4,16 +4,20 @@ var expect_obj = []
 var got_obj    = []
 var parser
 
-var defaults = 
-  { method: 'POST',
-    url: '/',
-    http_major: 1,
-    http_minor: 1,
-    headers: [
-      'Content-Length',
-      '5',
-    ],
-    content_len: 5 }
+var defaults = {
+  method          : 3,
+  methodString    : 'POST',
+  url             : '/',
+  versionMajor    : 1,
+  versionMinor    : 1,
+  headers: [
+    'Content-Length',
+    '5',
+  ],
+  contentLength   : 5,
+  shouldKeepAlive : true,
+  upgrade         : false,
+}
 
 function reset() {
   parser   = new HTTPParser(HTTPParser.REQUEST)
@@ -48,8 +52,8 @@ function execute(chunks) {
   try {
     assert.deepEqual(expect_obj, got_obj)
   } catch(err) {
-    console.log('EXPECT:', expect_obj)
-    console.log('GOT:', got_obj)
+    console.log('EXPECTED:', expect_obj)
+    console.log('RECEIVED:', got_obj)
     throw err
   }
 }
@@ -74,7 +78,7 @@ function expect(num, stuff) {
 
 // simple request
 reset()
-expect(1, { method: 'GET', content_len: 0, headers: [ 'content-length', '0' ] })
+expect(1, { method: 1, methodString: 'GET', contentLength: 0, headers: [ 'content-length', '0' ] })
 expect(3, undefined)
 execute('GET / HTTP/1.1\ncontent-length: 0\n\n')
 

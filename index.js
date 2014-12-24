@@ -73,13 +73,19 @@ HTTPParser.prototype.execute = function(data, start) {
   if (this.stage === 0) {
     // this generator always returns exactly one value
     if (value) {
+      var i = this.methods.indexOf(value.methodString)
+      if (i === -1) {
+        this.error = Error('Method not supported')
+        return this.error
+      }
+      value.method = i
       this[1](value)
-      if (!value.content_len) {
+      if (!value.contentLength) {
         this[3]()
         this.reinitialize()
       } else {
         this.stage++
-        this.parser = parse_body(value.content_len)
+        this.parser = parse_body(value.contentLength)
         this.parser.next()
       }
     }

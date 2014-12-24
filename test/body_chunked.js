@@ -4,16 +4,20 @@ var expect_obj = []
 var got_obj    = []
 var parser
 
-var defaults = 
-  { method: 'POST',
-    url: '/',
-    http_major: 1,
-    http_minor: 1,
-    headers: [
-      'Transfer-Encoding',
-      'chunked',
-    ],
-    content_len: -1 }
+var defaults = {
+  method          : 3,
+  methodString    : 'POST',
+  url             : '/',
+  versionMajor    : 1,
+  versionMinor    : 1,
+  headers: [
+    'Transfer-Encoding',
+    'chunked',
+  ],
+  contentLength   : -1,
+  shouldKeepAlive : true,
+  upgrade         : false,
+}
 
 function reset() {
   parser   = new HTTPParser(HTTPParser.REQUEST)
@@ -74,7 +78,7 @@ function expect(num, stuff) {
 
 // simple request
 reset()
-expect(1, { method: 'GET', headers: [ 'transfer-encoding', 'chunked' ] })
+expect(1, { method: 1, methodString: 'GET', headers: [ 'transfer-encoding', 'chunked' ] })
 expect(3, undefined)
 execute('GET / HTTP/1.1\ntransfer-encoding: chunked\n\n0\n')
 

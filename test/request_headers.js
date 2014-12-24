@@ -1,18 +1,22 @@
 var assert     = require('assert')
 var HTTPParser = require('../')
 
-var addTest    = require('./_utils').testFactory(
-  { method: 'GET',
-    url: '/',
-    http_major: 1,
-    http_minor: 1,
-    headers: [
-      'Host',
-      'iojs.org',
-      'foo',
-      'bar',
-    ],
-    content_len: 0 })
+var addTest = require('./_utils').testFactory({
+  method          : 1,
+  methodString    : 'GET',
+  url             : '/',
+  versionMajor    : 1,
+  versionMinor    : 1,
+  headers: [
+    'Host',
+    'iojs.org',
+    'foo',
+    'bar',
+  ],
+  contentLength   : 0,
+  shouldKeepAlive : true,
+  upgrade         : false,
+})
 
 // normal request
 addTest('GET / HTTP/1.1\nHost: iojs.org\nfoo: bar\n\n', {})

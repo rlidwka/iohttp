@@ -4,16 +4,20 @@ var expect_obj = []
 var got_obj    = []
 var parser
 
-var defaults = 
-  { method: 'GET',
-    url: '/',
-    http_major: 1,
-    http_minor: 1,
-    headers: [
-      'Host',
-      'iojs.org',
-    ],
-    content_len: 0 }
+var defaults = {
+  method          : 1,
+  methodString    : 'GET',
+  url             : '/',
+  versionMajor    : 1,
+  versionMinor    : 1,
+  headers: [
+    'Host',
+    'iojs.org',
+  ],
+  contentLength   : 0,
+  shouldKeepAlive : true,
+  upgrade         : false,
+}
 
 function reset() {
   parser   = new HTTPParser(HTTPParser.REQUEST)
