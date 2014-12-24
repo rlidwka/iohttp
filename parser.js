@@ -1,6 +1,8 @@
 
 module.exports.parse_request = function* parse_request(writer) {
   var pos, len, buf, ch
+  var conn_keepalive = false
+  var conn_close = false
 
   // this function is executed every time a new data comes in;
   // basically, it's helper for resetting position and length
@@ -223,6 +225,13 @@ module.exports.parse_request = function* parse_request(writer) {
       case 'transfer-encoding':
         if (t === 'chunked') result.contentLength = -1
         break
+      case 'connection':
+      case 'proxy-connection':
+        // I mistyped this for "Keep-Alice". Twice. Ouch...
+        // should I get married or something?
+        if (t.match(/(^|,)\s*keep-alive\s*(,|$)/)) conn_keepalive = true
+        if (t.match(/(^|,)\s*close\s*(,|$)/)) conn_close = true
+        break
     }
 
     // OWS again
@@ -249,6 +258,16 @@ module.exports.parse_request = function* parse_request(writer) {
   if (++pos < len) {
     buf.start = pos
   }
+
+  // should we keep this poor little connection alive?.. or kill it? :(
+  if (result.versionMajor > 0 && result.versionMinor > 0) {
+    // HTTP/1.1 (or HTTP/3.8 'cause why not)
+    if (conn_close) result.shouldKeepAlive = false
+  } else {
+    // HTTP/1.0 or HTTP/0.9
+    if (!conn_keepalive) result.shouldKeepAlive = false
+  }
+
   return result
 }
 

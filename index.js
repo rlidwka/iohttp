@@ -79,13 +79,15 @@ HTTPParser.prototype.execute = function(data, start) {
         return this.error
       }
       value.method = i
+
+      var len = value.contentLength
       this[1](value)
-      if (!value.contentLength) {
+      if (!len) {
         this[3]()
         this.reinitialize()
       } else {
         this.stage++
-        this.parser = parse_body(value.contentLength)
+        this.parser = parse_body(len)
         this.parser.next()
       }
     }

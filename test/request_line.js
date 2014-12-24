@@ -1,7 +1,7 @@
 var assert     = require('assert')
 var HTTPParser = require('../')
 
-var addTest    = require('./_utils').testFactory({
+var addTest = require('./_utils').testFactory({
   method          : 1,
   methodString    : 'GET',
   url             : '/',
