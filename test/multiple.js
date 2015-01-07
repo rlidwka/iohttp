@@ -1,8 +1,6 @@
-var assert     = require('assert')
-var HTTPParser = require('../')
-var expect_obj = []
-var got_obj    = []
-var parser
+var reset      = require('./_utils').reset
+var expect     = require('./_utils').expect
+var execute    = require('./_utils').execute
 
 var defaults = {
   method          : 1,
@@ -19,90 +17,71 @@ var defaults = {
   upgrade         : false,
 }
 
-function reset() {
-  parser   = new HTTPParser(HTTPParser.REQUEST)
-  expect_obj = []
-  got_obj = []
+describe('multiple', function() {
+  beforeEach(function() {
+    reset(defaults)
+  })
+  
+  it('one request', function() {
+    expect(1, {})
+    expect(3, undefined)
+    execute('GET / HTTP/1.1\nHost: iojs.org\n\n')
+  })
 
-  parser[1] = function(parsed) {
-    got_obj.push(parsed)
-  }
-}
+  it('two-in-one', function() {
+    expect(1, { url: '/1' })
+    expect(3, undefined)
+    expect(1, { url: '/2' })
+    expect(3, undefined)
+    execute('GET /1 HTTP/1.1\nHost: iojs.org\n\nGET /2 HTTP/1.1\nHost: iojs.org\n\n')
+  })
 
-function execute(chunks) {
-  if (!Array.isArray(chunks)) chunks = [ chunks ]
+  it('messed up chunks', function() {
+    expect(1, { url: '/1', headers: [] })
+    expect(3, undefined)
+    expect(1, { url: '/2', headers: [] })
+    expect(3, undefined)
+    execute(['GET /1 HTTP/','1.1\n\nGET',' /2 HTTP/1.1\n\n'])
+  })
 
-  for (var chunk of chunks) {
-    var err = parser.execute(typeof(chunk) === 'string' ? Buffer(chunk) : chunk)
-    if (err) {
-      got_obj.push({ error: err.message })
-      break
-    }
-  }
+  it('ending garbage', function() {
+    expect(1, { url: '/1', headers: [] })
+    expect(3, undefined)
+    expect(Error('Invalid HTTP method'))
+    execute('GET /1 HTTP/1.1\n\n@')
+  })
 
-  try {
-    assert.deepEqual(expect_obj, got_obj)
-  } catch(err) {
-    console.log('EXPECT:', expect_obj)
-    console.log('GOT:', got_obj)
-    throw err
-  }
-}
+  it('ending garbage - 2', function() {
+    expect(1, { url: '/1' })
+    expect(3, undefined)
+    expect(Error('Invalid HTTP method'))
+    execute('GET /1 HTTP/1.1\nHost: iojs.org\n\n@')
+  })
 
-function expect(stuff) {
-  if (stuff instanceof Error) {
-    return expect_obj.push({ error: stuff.message })
-  }
+  it('linebreaks - 1', function() {
+    // help people whose cat is sleeping on the "enter" key
+    expect(1, { url: '/1' })
+    expect(3, undefined)
+    execute('\n\n\n\nGET /1 HTTP/1.1\nHost: iojs.org\n\n')
+  })
 
-  var _stuff = {}
-  for (var i in defaults) _stuff[i] = defaults[i]
-  for (var i in stuff)    _stuff[i] = stuff[i]
-  expect_obj.push(_stuff)
-}
+  it('linebreaks - 2', function() {
+    expect(1, { url: '/1' })
+    expect(3, undefined)
+    execute('\r\n\r\nGET /1 HTTP/1.1\nHost: iojs.org\n\n')
+  })
 
-// one request
-reset()
-expect({})
-execute('GET / HTTP/1.1\nHost: iojs.org\n\n')
+  it('linebreaks - 3', function() {
+    expect(1, { url: '/1' })
+    expect(3, undefined)
+    expect(1, { url: '/2', headers: [] })
+    expect(3, undefined)
+    execute('GET /1 HTTP/1.1\nHost: iojs.org\n\n\n\n\nGET /2 HTTP/1.1\n\n')
+  })
 
-// two-in-one
-reset()
-expect({ url: '/1' })
-expect({ url: '/2' })
-execute('GET /1 HTTP/1.1\nHost: iojs.org\n\nGET /2 HTTP/1.1\nHost: iojs.org\n\n')
-
-// messed up chunks
-reset()
-expect({ url: '/1', headers: [] })
-expect({ url: '/2', headers: [] })
-execute(['GET /1 HTTP/','1.1\n\nGET',' /2 HTTP/1.1\n\n'])
-
-// ending garbage
-reset()
-expect({ url: '/1', headers: [] })
-expect(Error('Invalid HTTP method'))
-execute('GET /1 HTTP/1.1\n\n@')
-
-reset()
-expect({ url: '/1' })
-expect(Error('Invalid HTTP method'))
-execute('GET /1 HTTP/1.1\nHost: iojs.org\n\n@')
-
-// help people whose cat is sleeping on the "enter" key
-reset()
-expect({ url: '/1' })
-execute('\n\n\n\nGET /1 HTTP/1.1\nHost: iojs.org\n\n')
-
-reset()
-expect({ url: '/1' })
-execute('\r\n\r\nGET /1 HTTP/1.1\nHost: iojs.org\n\n')
-
-reset()
-expect({ url: '/1' })
-expect({ url: '/2', headers: [] })
-execute('GET /1 HTTP/1.1\nHost: iojs.org\n\n\n\n\nGET /2 HTTP/1.1\n\n')
-
-reset()
-expect(Error('Invalid HTTP method'))
-execute('\r\r')
+  it('linebreaks - 4', function() {
+    expect(Error('Invalid HTTP method'))
+    execute('\r\r')
+  })
+})
 

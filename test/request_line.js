@@ -1,7 +1,8 @@
-var assert     = require('assert')
-var HTTPParser = require('../')
+var reset      = require('./_utils').reset
+var expect     = require('./_utils').expect
+var execute    = require('./_utils').execute
 
-var addTest = require('./_utils').testFactory({
+var defaults = {
   method          : 1,
   methodString    : 'GET',
   url             : '/',
@@ -11,70 +12,190 @@ var addTest = require('./_utils').testFactory({
   contentLength   : 0,
   shouldKeepAlive : false,
   upgrade         : false,
+}
+
+describe('request line', function() {
+  beforeEach(function() {
+    reset(defaults)
+  })
+
+  it('normal request', function() {
+    expect(1, {})
+    expect(3, undefined)
+    execute('GET / HTTP/1.0\n\n')
+  })
+
+  it('options', function() {
+    expect(1, { method: 6, methodString: 'OPTIONS', url: '*' })
+    expect(3, undefined)
+    execute('OPTIONS * HTTP/1.0\n\n')
+  })
+
+  it('cr - 1', function() {
+    // cr... cr... crap, why don't everyone just use lf
+    expect(1, {})
+    expect(3, undefined)
+    execute('GET / HTTP/1.0\r\n\r\n')
+  })
+
+  it('cr - 2', function() {
+    expect(1, {})
+    expect(3, undefined)
+    execute('GET / HTTP/1.0\n\r\n')
+  })
+
+  it('cr - 3', function() {
+    expect(1, {})
+    expect(3, undefined)
+    execute('GET / HTTP/1.0\r\n\n')
+  })
+
+  it('cr - 4', function() {
+    expect(Error('Invalid HTTP version'))
+    execute('GET / HTTP/1.0\r\r')
+  })
+
+  it('version check - 1', function() {
+    // we're taking bets on when this'll go live
+    expect(1, { versionMajor: 8, versionMinor: 9, shouldKeepAlive: true })
+    expect(3, undefined)
+    execute('GET / HTTP/8.9\n\n')
+  })
+
+  it('version check - 2', function() {
+    expect(Error('Invalid HTTP version'))
+    execute('GET / HTTP/A.9')
+  })
+
+  it('version check - 3', function() {
+    expect(Error('Invalid HTTP version'))
+    execute('GET / HTTP/10.0')
+  })
+
+  it('lowercase stuff - 1', function() {
+    expect(Error('Method not supported'))
+    execute('get / HTTP/1.0\n\n')
+  })
+
+  it('lowercase stuff - 2', function() {
+    expect(Error('Invalid HTTP version'))
+    execute('GET / http/')
+  })
+
+  it('get http', function() {
+    // did somebody just take url for dinner?
+    expect(Error('Invalid URL'))
+    execute('GET  HTTP')
+  })
+
+  it('custom url', function() {
+    expect(1, { url: '/foo/bar/baz/quux' })
+    expect(3, undefined)
+    execute('GET /foo/bar/baz/quux HTTP/1.0\n\n')
+  })
+
+  it('spacing - 1', function() {
+    expect(Error('Invalid URL'))
+    execute('GET  / HTTP')
+  })
+
+  it('spacing - 2', function() {
+    expect(Error('Invalid HTTP version'))
+    execute('GET /  HTTP')
+  })
+
+  it('spacing - 3', function() {
+    expect(Error('Invalid HTTP method'))
+    execute('GET\t/ HTTP')
+  })
+
+  it('spacing - 4', function() {
+    expect(Error('Invalid URL'))
+    execute('GET /\tHTTP')
+  })
+
+  it('spacing - 5', function() {
+    expect(Error('Invalid HTTP version'))
+    execute('GET / / HTTP')
+  })
+
+  it('spacing - 6', function() {
+    expect(Error('Invalid URL'))
+    execute('GET /\t/ HTTP')
+  })
+
+  it('chunks - 1', function() {
+    expect(1, {})
+    expect(3, undefined)
+    execute(['G','E','T',' ','/',' ','H','T','T','P','/','1','.','0','\n','\n'])
+  })
+
+  it('chunks - 2', function() {
+    expect(1, {})
+    expect(3, undefined)
+    execute(['GE','T ','/ ','HT','TP','/1','.0','\n\n'])
+  })
+
+  it('chunks - 3', function() {
+    expect(1, {})
+    expect(3, undefined)
+    execute(['G','ET',' /',' H','TT','P/','1.','0\n','\n'])
+  })
+
+  it('unicode path', function() {
+    // unicode in path contradicts the RFC, but who cares about that anyway?
+    expect(1, { url: '/αβγδ' })
+    expect(3, undefined)
+    execute('GET /αβγδ HTTP/1.0\n\n')
+  })
+
+  it('splitting - 1', function() {
+    // unicode splitting; if it weren't for this crap,
+    // I'd be happily using string concatenation about now
+    expect(1, { url: '/αβγδ' })
+    expect(3, undefined)
+    execute([
+      'GET /',[0xce],[0xb1],[0xce],[0xb2],[0xce],[0xb3],[0xce],[0xb4],' HTTP/1.0\n\n'
+    ].map(Buffer))
+  })
+
+  it('splitting - 2', function() {
+    expect(1, { url: '/αβγδ' })
+    expect(3, undefined)
+    execute([
+      'GET /',[0xce, 0xb1],[0xce, 0xb2],[0xce, 0xb3],[0xce, 0xb4],' HTTP/1.0\n\n'
+    ].map(Buffer))
+  })
+
+  it('splitting - 3', function() {
+    expect(1, { url: '/αβγδ' })
+    expect(3, undefined)
+    execute([
+      'GET /',[0xce],[0xb1, 0xce],[0xb2, 0xce],[0xb3, 0xce],[0xb4],' HTTP/1.0\n\n'
+    ].map(Buffer))
+  })
+
+  it('uni - 1', function() {
+    // unicode (except it isn't)
+    expect(1, { url: '/��' })
+    expect(3, undefined)
+    execute(['GET /',Buffer([0xff, 0xff]),' HTTP/1.0\n\n'])
+  })
+
+  it('uni - 2', function() {
+    expect(1, { url: '/�x' })
+    expect(3, undefined)
+    execute(['GET /',Buffer([0xce]),'x HTTP/1.0\n\n'])
+  })
+
+  it('binary crap - 1', function() {
+    expect(Error('Invalid HTTP method'))
+    execute([Buffer(0xff)])
+  })
+
+  it('binary crap - 2', function() {
+    expect(Error('Invalid HTTP method'))
+    execute([Buffer(0x00)])
+  })
 })
-
-// normal request
-addTest('GET / HTTP/1.0\n\n', {})
-
-// options
-addTest('OPTIONS * HTTP/1.0\n\n', { method: 6, methodString: 'OPTIONS', url: '*' })
-
-// cr... cr... crap, why don't everyone just use lf
-addTest('GET / HTTP/1.0\r\n\r\n', {})
-addTest('GET / HTTP/1.0\n\r\n',   {})
-addTest('GET / HTTP/1.0\r\n\n',   {})
-addTest('GET / HTTP/1.0\r\r',     Error('Invalid HTTP version'))
-
-// version check; we're taking bets on when it'll go live
-addTest('GET / HTTP/8.9\n\n',  { versionMajor: 8, versionMinor: 9, shouldKeepAlive: true })
-addTest('GET / HTTP/A.9',  Error('Invalid HTTP version'))
-addTest('GET / HTTP/10.0', Error('Invalid HTTP version'))
-
-// lowercase stuff
-addTest('get / HTTP/1.0\n\n', Error('Method not supported'))
-addTest('GET / http/',        Error('Invalid HTTP version'))
-
-// did somebody just take url for dinner?
-addTest('GET  HTTP', Error('Invalid URL'))
-
-// custom url
-addTest('GET /foo/bar/baz/quux HTTP/1.0\n\n', { url: '/foo/bar/baz/quux' })
-
-// spacing
-addTest('GET  / HTTP',   Error('Invalid URL'))
-addTest('GET /  HTTP',   Error('Invalid HTTP version'))
-addTest('GET\t/ HTTP',   Error('Invalid HTTP method'))
-addTest('GET /\tHTTP',   Error('Invalid URL'))
-addTest('GET / / HTTP',  Error('Invalid HTTP version'))
-addTest('GET /\t/ HTTP', Error('Invalid URL'))
-
-// chunks
-addTest(['G','E','T',' ','/',' ','H','T','T','P','/','1','.','0','\n','\n'], {})
-addTest(['GE','T ','/ ','HT','TP','/1','.0','\n\n'], {})
-addTest(['G','ET',' /',' H','TT','P/','1.','0\n','\n'], {})
-
-// unicode in path contradicts the RFC, but who cares about that anyway?
-addTest('GET /αβγδ HTTP/1.0\n\n', { url: '/αβγδ' })
-
-// unicode splitting; if it weren't for this crap,
-// I'd be happily using string concatenation about now
-addTest([
-  'GET /',[0xce],[0xb1],[0xce],[0xb2],[0xce],[0xb3],[0xce],[0xb4],' HTTP/1.0\n\n'
-].map(Buffer), { url: '/αβγδ' })
-
-addTest([
-  'GET /',[0xce, 0xb1],[0xce, 0xb2],[0xce, 0xb3],[0xce, 0xb4],' HTTP/1.0\n\n'
-].map(Buffer), { url: '/αβγδ' })
-
-addTest([
-  'GET /',[0xce],[0xb1, 0xce],[0xb2, 0xce],[0xb3, 0xce],[0xb4],' HTTP/1.0\n\n'
-].map(Buffer), { url: '/αβγδ' })
-
-// unicode (except it isn't)
-addTest(['GET /',Buffer([0xff, 0xff]),' HTTP/1.0\n\n'], { url: '/��' })
-addTest(['GET /',Buffer([0xce]),'x HTTP/1.0\n\n'], { url: '/�x' })
-
-// binary crap
-addTest([Buffer(0xff)], Error('Invalid HTTP method'))
-addTest([Buffer(0x00)], Error('Invalid HTTP method'))
 
