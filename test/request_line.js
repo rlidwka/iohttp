@@ -9,7 +9,7 @@ var addTest = require('./_utils').testFactory({
   versionMinor    : 0,
   headers         : [],
   contentLength   : 0,
-  shouldKeepAlive : true,
+  shouldKeepAlive : false,
   upgrade         : false,
 })
 
@@ -26,7 +26,7 @@ addTest('GET / HTTP/1.0\r\n\n',   {})
 addTest('GET / HTTP/1.0\r\r',     Error('Invalid HTTP version'))
 
 // version check; we're taking bets on when it'll go live
-addTest('GET / HTTP/8.9\n\n',  { versionMajor: 8, versionMinor: 9 })
+addTest('GET / HTTP/8.9\n\n',  { versionMajor: 8, versionMinor: 9, shouldKeepAlive: true })
 addTest('GET / HTTP/A.9',  Error('Invalid HTTP version'))
 addTest('GET / HTTP/10.0', Error('Invalid HTTP version'))
 

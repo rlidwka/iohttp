@@ -1,5 +1,5 @@
 
-module.exports.parse_request = function* parse_request(writer) {
+module.exports.parse_request = function* parse_request(writer, mode) {
   var pos, len, buf, ch
   var conn_keepalive = false
   var conn_close = false
@@ -20,116 +20,137 @@ module.exports.parse_request = function* parse_request(writer) {
   var add   = writer.add
   var flush = writer.flush
 
-  // return value of the generator;
-  // we return either this or an Error instance
-  var result = {
-    method          : 0,
-    methodString    : null,
-    url             : null,
-    versionMajor    : -1,
-    versionMinor    : -1,
-    headers         : [],
-    contentLength   : 0, // -1 for chunked
-    shouldKeepAlive : true,
-    upgrade         : false,
-  }
+  if (mode === 1 /* request */) {
+    /*
+     *  Parse request line
+     *
+     *  http://tools.ietf.org/html/rfc7230#section-3.1.1
+     */
 
-  /*
-   *  Parse request line
-   *
-   *  http://tools.ietf.org/html/rfc7230#section-3.1.1
-   */
+    // return value of the generator;
+    // we return either this or an Error instance
+    var result = {
+      method          : 0,
+      methodString    : null,
+      url             : null,
+      versionMajor    : -1,
+      versionMinor    : -1,
+      headers         : [],
+      contentLength   : 0, // -1 for chunked
+      shouldKeepAlive : true,
+      upgrade         : false,
+    }
 
-  // skip linebreaks before request line
-  while (true) {
-    ch = buf[pos]
-    if (ch === 0x0D) {
-      if (++pos >= len) next(yield)
-      if (buf[pos] === 0x0A) {
+    // skip linebreaks before request line
+    while (true) {
+      ch = buf[pos]
+      if (ch === 0x0D) {
+        if (++pos >= len) next(yield)
+        if (buf[pos] === 0x0A) {
+          if (++pos >= len) next(yield)
+          continue
+        }
+      } else if (ch === 0x0A) {
         if (++pos >= len) next(yield)
         continue
       }
-    } else if (ch === 0x0A) {
+      break
+    }
+
+    // parse http method until we stumble across non-token char
+    //
+    // GET /whatever HTTP/1.0
+    // ^^^-- this is it in case you didn't notice
+    while (is_token[ch = buf[pos]]) {
+      add(ch)
       if (++pos >= len) next(yield)
-      continue
     }
-    break
-  }
 
-  // parse http method until we stumble across non-token char
-  //
-  // GET /whatever HTTP/1.0
-  // ^^^-- this is it in case you didn't notice
-  while (is_token[ch = buf[pos]]) {
-    add(ch)
-    if (++pos >= len) next(yield)
-  }
-
-  // ch is the first non-token char here
-  //
-  // note: joyent/http-parser allows multiple spaces here,
-  //       but newer rfc restricts it to one space only
-  if (ch !== 0x20) return Error('Invalid HTTP method')
-  if (++pos >= len) next(yield)
-  result.methodString = flush()
-
-  // parse http url, just wait until a non-printable char
-  // or a space comes out
-  //
-  // GET /whatever HTTP/1.0
-  //     ^^^^^^^^^-- this
-  while ((ch = buf[pos]) > 0x20 && ch !== 0x7F) {
-    add(ch)
-    if (++pos >= len) next(yield)
-  }
-
-  // ch is the first non-url char here
-  if (ch !== 0x20) return Error('Invalid URL')
-  if (++pos >= len) next(yield)
-  result.url = flush()
-  if (result.url.length === 0) return Error('Invalid URL')
-
-  var request_line_correct = false
-  VER: {
-    // parse "HTTP" constant
-    if (buf[pos] !== 0x48 /* H */) break VER ; if (++pos >= len) next(yield)
-    if (buf[pos] !== 0x54 /* T */) break VER ; if (++pos >= len) next(yield)
-    if (buf[pos] !== 0x54 /* T */) break VER ; if (++pos >= len) next(yield)
-    if (buf[pos] !== 0x50 /* P */) break VER ; if (++pos >= len) next(yield)
-    if (buf[pos] !== 0x2f /* / */) break VER ; if (++pos >= len) next(yield)
-
-    // parse major HTTP version
+    // ch is the first non-token char here
     //
-    // note: joyent/http-parser allows version up to 999,
-    //       but newer rfc restricts it to one digit
+    // note: joyent/http-parser allows multiple spaces here,
+    //       but newer rfc restricts it to one space only
+    if (ch !== 0x20) return Error('Invalid HTTP method')
+    if (++pos >= len) next(yield)
+    result.methodString = flush()
+
+    // parse http url, just wait until a non-printable char
+    // or a space comes out
     //
-    //       (HTTP/xxx.x will be parsed by a quantum computer
-    //        anyway, and javascript doesn't work on those)
-    ch = buf[pos]
-    if (!(0x30 <= ch && ch <= 0x39)) break VER
-    result.versionMajor = buf[pos] - 0x30
-    if (++pos >= len) next(yield)
-
-    if (buf[pos] !== 0x2e /* . */) break VER ; if (++pos >= len) next(yield)
-
-    // parse minor HTTP version
-    ch = buf[pos]
-    if (!(0x30 <= ch && ch <= 0x39)) break VER
-    result.versionMinor = buf[pos] - 0x30
-    if (++pos >= len) next(yield)
-
-    // parse patch HTTP ve... oh wait, I forgot, only npm stuff uses semver
-
-    // CRLF | LF
-    // Here an everywhere else we're making "\r" optional, because it's
-    // very inconvenient to debug http servers with `nc` otherwise.
-    if (buf[pos] === 0x0D) if (++pos >= len) next(yield)
-    if (buf[pos] === 0x0A) {
-      request_line_correct = true
+    // GET /whatever HTTP/1.0
+    //     ^^^^^^^^^-- this
+    while ((ch = buf[pos]) > 0x20 && ch !== 0x7F) {
+      add(ch)
+      if (++pos >= len) next(yield)
     }
-  }
 
-  if (!request_line_correct) return Error('Invalid HTTP version')
+    // ch is the first non-url char here
+    if (ch !== 0x20) return Error('Invalid URL')
+    if (++pos >= len) next(yield)
+    result.url = flush()
+    if (result.url.length === 0) return Error('Invalid URL')
+
+    var request_line_correct = false
+    VER: {
+      // parse "HTTP" constant
+      if (buf[pos] !== 0x48 /* H */) break VER ; if (++pos >= len) next(yield)
+      if (buf[pos] !== 0x54 /* T */) break VER ; if (++pos >= len) next(yield)
+      if (buf[pos] !== 0x54 /* T */) break VER ; if (++pos >= len) next(yield)
+      if (buf[pos] !== 0x50 /* P */) break VER ; if (++pos >= len) next(yield)
+      if (buf[pos] !== 0x2f /* / */) break VER ; if (++pos >= len) next(yield)
+
+      // parse major HTTP version
+      //
+      // note: joyent/http-parser allows version up to 999,
+      //       but newer rfc restricts it to one digit
+      //
+      //       (HTTP/xxx.x will be parsed by a quantum computer
+      //        anyway, and javascript doesn't work on those)
+      ch = buf[pos]
+      if (!(0x30 <= ch && ch <= 0x39)) break VER
+      result.versionMajor = buf[pos] - 0x30
+      if (++pos >= len) next(yield)
+
+      if (buf[pos] !== 0x2e /* . */) break VER ; if (++pos >= len) next(yield)
+
+      // parse minor HTTP version
+      ch = buf[pos]
+      if (!(0x30 <= ch && ch <= 0x39)) break VER
+      result.versionMinor = buf[pos] - 0x30
+      if (++pos >= len) next(yield)
+
+      // parse patch HTTP ve... oh wait, I forgot, only npm stuff uses semver
+
+      // CRLF | LF
+      // Here an everywhere else we're making "\r" optional, because it's
+      // very inconvenient to debug http servers with `nc` otherwise.
+      if (buf[pos] === 0x0D) if (++pos >= len) next(yield)
+      if (buf[pos] === 0x0A) {
+        request_line_correct = true
+      }
+    }
+
+    if (!request_line_correct) return Error('Invalid HTTP version')
+
+  } else if (mode === 2 /* response */) {
+    var result = {
+      statusCode      : 0,
+      statusMessage   : null,
+      versionMajor    : -1,
+      versionMinor    : -1,
+      headers         : [],
+      contentLength   : 0,
+      shouldKeepAlive : true,
+      upgrade         : false,
+    }
+
+  } else if (mode === 0 /* just headers */) {
+    var result = {
+      headers         : [],
+      contentLength   : 0,
+    }
+
+  } else throw Error('invalid mode: ' + JSON.stringify(mode))
 
   if (++pos >= len) next(yield)
 
@@ -259,13 +280,15 @@ module.exports.parse_request = function* parse_request(writer) {
     buf.start = pos
   }
 
-  // should we keep this poor little connection alive?.. or kill it? :(
-  if (result.versionMajor > 0 && result.versionMinor > 0) {
-    // HTTP/1.1 (or HTTP/3.8 'cause why not)
-    if (conn_close) result.shouldKeepAlive = false
-  } else {
-    // HTTP/1.0 or HTTP/0.9
-    if (!conn_keepalive) result.shouldKeepAlive = false
+  if (result.shouldKeepAlive !== undefined) {
+    // should we keep this poor little connection alive?.. or kill it? :(
+    if (result.versionMajor > 0 && result.versionMinor > 0) {
+      // HTTP/1.1 (or HTTP/3.8 'cause why not)
+      if (conn_close) result.shouldKeepAlive = false
+    } else {
+      // HTTP/1.0 or HTTP/0.9
+      if (!conn_keepalive) result.shouldKeepAlive = false
+    }
   }
 
   return result
@@ -330,8 +353,22 @@ module.exports.parse_body = function* parse_body(content_length) {
       }
 
       if (length === 0) {
-        buf.start = pos + 1
-        return
+        if (++pos >= len) next(yield)
+
+        if (buf[pos] === 0x0D) {
+          if (++pos >= len) next(yield)
+          if (buf[pos] === 0x0A) {
+            buf.start = pos + 1
+            return
+          } else {
+            return Error('Invalid trailer')
+          }
+        } else if (buf[pos] === 0x0A) {
+          buf.start = pos + 1
+          return
+        }
+        buf.start = pos - 1
+        return true
       }
       if (++pos >= len) next(yield)
 

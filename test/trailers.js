@@ -76,79 +76,34 @@ function expect(num, stuff) {
   expect_obj.push(t)
 }
 
-// simple request
+// no body
 reset()
 expect(1, { method: 1, methodString: 'GET', headers: [ 'transfer-encoding', 'chunked' ] })
+expect(0, [ 'Foo', 'bar' ])
 expect(3, undefined)
-execute('GET / HTTP/1.1\ntransfer-encoding: chunked\n\n0\n\n')
+execute('GET / HTTP/1.1\ntransfer-encoding: chunked\n\n0\nFoo: bar\n\n')
 
 // multiple requests
 reset()
 expect(1, { url: '/1' })
+expect(0, [ 'Foo', 'bar' ])
 expect(3, undefined)
 expect(1, { url: '/2' })
 expect(3, undefined)
-execute('POST /1 HTTP/1.1\nTransfer-Encoding: chunked\n\n0\n\nPOST /2 HTTP/1.1\nTransfer-Encoding: chunked\n\n0\n\n')
-
-// multiple chunks
-reset()
-expect(1, {})
-expect(2, '1234567890')
-expect(2, '1234567890ABCDEF')
-expect(3, undefined)
-expect(Error('Invalid HTTP method'))
-execute('POST / HTTP/1.1\nTransfer-Encoding: chunked\n\nA\n1234567890\n10\n1234567890ABCDEF\n0\n\n@')
+execute('POST /1 HTTP/1.1\nTransfer-Encoding: chunked\n\n0\nFoo: bar\n\nPOST /2 HTTP/1.1\nTransfer-Encoding: chunked\n\n0\n\n')
 
 // crlf
 reset()
 expect(1, {})
 expect(2, '1234567890')
-expect(2, '1234567890ABCDEF')
+expect(0, [ 'Foo', 'bar' ])
 expect(3, undefined)
-execute('POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\nA\r\n1234567890\r\n10\r\n1234567890ABCDEF\r\n0\r\n\r\n')
+execute('POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\nA\r\n1234567890\r\n0\r\nFoo: bar\r\n\r\n')
 
-// garbage at the end
+// splitting
 reset()
 expect(1, {})
-expect(2, 'hello')
+expect(0, [ 'Foo', 'bar' ])
 expect(3, undefined)
-expect(Error('Invalid HTTP method'))
-execute('POST / HTTP/1.1\nTransfer-Encoding: chunked\n\n5\nhello\n0\n\n@')
-
-// normal chunk splitting
-reset()
-expect(1, {})
-expect(2, 'he')
-expect(2, 'l')
-expect(2, 'lo')
-expect(3, undefined)
-execute([ 'POST / HTTP/1.1\nTransfer-Encoding: chunked\n\n', '2\nhe\n', '1\nl\n', '2\nlo\n', '0\n\n' ])
-
-// crazy chunk splitting
-reset()
-expect(1, {})
-expect(2, 'h')
-expect(2, 'e')
-expect(2, 'l')
-expect(2, 'l')
-expect(2, 'o')
-expect(3, undefined)
-execute('POST / HTTP/1.1\nTransfer-Encoding: chunked\n\n2\nhe\n1\nl\n2\nlo\n0\n\n'.split(''))
-
-// invalid chunks
-reset()
-expect(1, {})
-expect(Error('Invalid chunk'))
-execute('POST / HTTP/1.1\nTransfer-Encoding: chunked\n\ng\n')
-
-reset()
-expect(1, {})
-expect(Error('Invalid chunk'))
-execute('POST / HTTP/1.1\nTransfer-Encoding: chunked\n\n0P')
-
-reset()
-expect(1, {})
-expect(2, 'hello')
-expect(Error('Invalid chunk'))
-execute('POST / HTTP/1.1\nTransfer-Encoding: chunked\n\n5\nhello world')
+execute('POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n0\r\nFoo: bar\r\n\r\n'.split(''))
 

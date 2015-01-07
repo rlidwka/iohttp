@@ -35,9 +35,11 @@ function HTTPParser(type) {
 }
 
 HTTPParser.prototype.reinitialize = function(type) {
-  this.parser = parse_request(this.writer)
+  if (type == null) type = this.type
+  this.parser = parse_request(this.writer, type)
   this.parser.next()
 
+  this.url   = ''
   this.stage = 0
   this.type  = type
   this.error = null
@@ -82,6 +84,7 @@ HTTPParser.prototype.execute = function(data, start) {
 
       var len = value.contentLength
       this[1](value)
+      this.url = value.url
       if (!len) {
         this[3]()
         this.reinitialize()
@@ -92,10 +95,23 @@ HTTPParser.prototype.execute = function(data, start) {
       }
     }
   } else if (this.stage === 1) {
-    // this generator can end without a value
-    if (value) this[2](value)
-
-    if (result.done) {
+    if (!result.done) {
+      if (value) this[2](value)
+    } else {
+      if (value === true) {
+        // here be dragons... I mean, trailers
+        this.stage++
+        this.parser = parse_request(this.writer, 0)
+        this.parser.next()
+      } else {
+        if (value) this[2](value)
+        this[3]()
+        this.reinitialize()
+      }
+    }
+  } else if (this.stage === 2) {
+    if (value) {
+      this[0](value.headers, this.url)
       this[3]()
       this.reinitialize()
     }
@@ -122,8 +138,9 @@ HTTPParser.prototype.resume = function() {
   throw Error('unimplemented')
 }
 
-HTTPParser.REQUEST            = 0
-HTTPParser.RESPONSE           = 1
+HTTPParser.ANY                = 0
+HTTPParser.REQUEST            = 1
+HTTPParser.RESPONSE           = 2
 HTTPParser.kOnHeaders         = 0
 HTTPParser.kOnHeadersComplete = 1
 HTTPParser.kOnBody            = 2
