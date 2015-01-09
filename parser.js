@@ -274,7 +274,9 @@ module.exports.parse_request = function* parse_request(writer, mode) {
     // ^^^^^^^^^^^^ here it is
     add(ch)
     if (++pos >= len) next(yield)
-    while (is_token[ch = buf[pos]]) {
+    //                                v--- this isn't actually valid in http,
+    //                                     but there are win servers doing that
+    while (is_token[ch = buf[pos]] || ch === 0x20) {
       add(ch)
       if (++pos >= len) next(yield)
     }

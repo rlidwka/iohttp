@@ -55,7 +55,7 @@ describe('request headers', function() {
   it('after-header-thing', function() {
     // but whyyyyy... it looks almost like a colon
     expect(Error('Invalid header'))
-    execute('GET / HTTP/1.1\nHost! iojs.org', Error('Invalid header'))
+    execute('GET / HTTP/1.1\nHost! iojs.org\n', Error('Invalid header'))
   })
 
   it('ws - 1', function() {
@@ -73,12 +73,7 @@ describe('request headers', function() {
 
   it('ws - 4', function() {
     expect(Error('Invalid header'))
-    execute('GET / HTTP/1.1\nHost iojs.org')
-  })
-
-  it('ws - 5', function() {
-    expect(Error('Invalid header'))
-    execute('GET / HTTP/1.1\nHost :iojs.org')
+    execute('GET / HTTP/1.1\nHost iojs.org\n')
   })
 
   it('field-name contents', function() {
