@@ -298,28 +298,13 @@ module.exports.parse_request = function* parse_request(writer, mode) {
     // Accept: foo, bar, baz
     //         ^^^^^^^^^^^^^ here
     while (true) {
-      while ((ch = buf[pos]) > 0x20 && ch !== 0x7f) {
-        add(ch)
-        if (++pos >= len) next(yield)
-      }
+      ch = buf[pos]
 
-      if (ch === 0x20 || ch === 0x09) {
-        if (++pos >= len) next(yield)
-        if (buf[pos] > 0x20 && buf[pos] !== 0x7f) {
-          // multiple values, separated by an exactly one WS;
-          //
-          // I wonder how much time until somebody finds two-space
-          // separated header value out there?
-          add(ch)
-          add(buf[pos])
-          if (++pos >= len) next(yield)
-          continue
-        }
-        ch = buf[pos]
-      }
+      // allow 0x09, 0x20-0x7E, 0x80-0xFF
+      if (ch === 0x7F || (ch < 0x20 && ch !== 0x09)) break
 
-      // some control char or \n
-      break
+      add(ch)
+      if (++pos >= len) next(yield)
     }
 
     var t = flush()

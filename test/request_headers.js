@@ -71,12 +71,6 @@ describe('request headers', function() {
     execute('GET / HTTP/1.1\nHost:  iojs.org\nfoo:\tbar\n\n')
   })
 
-  it('ws - 3', function() {
-    expect(1, {})
-    expect(3, undefined)
-    execute('GET / HTTP/1.1\nHost: iojs.org  \nfoo: bar\t\n\n')
-  })
-
   it('ws - 4', function() {
     expect(Error('Invalid header'))
     execute('GET / HTTP/1.1\nHost iojs.org')
@@ -98,15 +92,10 @@ describe('request headers', function() {
     execute('GET / HTTP/1.1\nfoo: αβγδ\n\n')
   })
 
-  it('field-value contents - 1', function() {
+  it('field-value contents - 2', function() {
     expect(1, { headers: ['foo', 'field, field,\tfield'] })
     expect(3, undefined)
     execute('GET / HTTP/1.1\nfoo: field, field,\tfield\n\n')
-  })
-
-  it('field-value contents - 1', function() {
-    expect(Error('Invalid header'))
-    execute('GET / HTTP/1.1\nfoo: field,  field')
   })
 
   it('unicode splitting', function() {
