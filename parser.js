@@ -446,6 +446,13 @@ module.exports.parse_body = function* parse_body(content_length) {
         } while (ch !== 0x0D && ch !== 0x0A)
       }
 
+      // trailing space in chunks;
+      // not actually valid, but there is a test for that...
+      while (ch === 0x20) {
+        if (++pos >= len) next(yield)
+        ch = buf[pos]
+      }
+
       if (ch === 0x0D) {
         if (++pos >= len) next(yield)
         if (buf[pos] !== 0x0A) {
