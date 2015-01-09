@@ -229,13 +229,12 @@ module.exports.parse_request = function* parse_request(writer, mode) {
     if (buf[pos] === 0x0D) if (++pos >= len) next(yield)
     if (buf[pos] !== 0x0A) return Error('Invalid status line')
 
-  } else if (mode === 0 /* just headers */) {
+  } else { // just headers
     var result = {
       headers         : [],
       contentLength   : 0,
     }
-
-  } else throw Error('invalid mode: ' + JSON.stringify(mode))
+  }
 
   if (++pos >= len) next(yield)
 
@@ -324,12 +323,6 @@ module.exports.parse_request = function* parse_request(writer, mode) {
         if (t.match(/(^|,)\s*close\s*(,|$)/i))      conn_close = true
         if (t.match(/(^|,)\s*upgrade\s*(,|$)/i))    result.upgrade = true
         break
-    }
-
-    // OWS again
-    while (ch === 0x20 || ch === 0x09) {
-      if (++pos >= len) next(yield)
-      ch = buf[pos]
     }
 
     // CRLF | LF
@@ -438,19 +431,19 @@ module.exports.parse_body = function* parse_body(content_length) {
         length = length * 16 + dec
       }
 
+      // trailing space in chunks;
+      // not actually valid, but there is a test for that...
+      while (ch === 0x20) {
+        if (++pos >= len) next(yield)
+        ch = buf[pos]
+      }
+
       if (ch === 0x3b /* ; */) {
         // chunk extensions...? really? o_O
         do {
           if (++pos >= len) next(yield)
           ch = buf[pos]
         } while (ch !== 0x0D && ch !== 0x0A)
-      }
-
-      // trailing space in chunks;
-      // not actually valid, but there is a test for that...
-      while (ch === 0x20) {
-        if (++pos >= len) next(yield)
-        ch = buf[pos]
       }
 
       if (ch === 0x0D) {
@@ -495,10 +488,6 @@ module.exports.parse_body = function* parse_body(content_length) {
         length -= rem_len
       } while (length > 0)
 
-      // previous code points pos at the next char, not as usual
-      pos--
-
-      if (++pos >= len) next(yield)
       ch = buf[pos]
       if (ch === 0x0D) {
         if (++pos >= len) next(yield)
