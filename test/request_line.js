@@ -16,7 +16,7 @@ var defaults = {
 
 describe('request line', function() {
   beforeEach(function() {
-    reset(defaults)
+    reset('request', defaults)
   })
 
   it('normal request', function() {

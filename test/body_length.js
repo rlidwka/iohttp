@@ -19,7 +19,7 @@ var defaults = {
 
 describe('body length', function() {
   beforeEach(function() {
-    reset(defaults)
+    reset('request', defaults)
   })
 
   it('simple request', function() {

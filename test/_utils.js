@@ -34,9 +34,9 @@ module.exports.testFactory = function(defaults) {
 
 var defaults, parser, expected_obj, received_obj
 
-module.exports.reset = function reset(def_1) {
+module.exports.reset = function reset(mode, def_1) {
   defaults = def_1
-  parser = new HTTPParser(HTTPParser.REQUEST)
+  parser = new HTTPParser(mode === 'request' ? HTTPParser.REQUEST : HTTPParser.RESPONSE)
   expected_obj = []
   received_obj = []
 

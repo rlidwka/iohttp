@@ -19,7 +19,7 @@ var defaults = {
 
 describe('trailers', function() {
   beforeEach(function() {
-    reset(defaults)
+    reset('request', defaults)
   })
 
   it('no body', function() {

@@ -19,7 +19,7 @@ var defaults = {
 
 describe('body chunked', function() {
   beforeEach(function() {
-    reset(defaults)
+    reset('request', defaults)
   })
 
   it('simple request', function() {

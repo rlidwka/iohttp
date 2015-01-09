@@ -19,7 +19,7 @@ var defaults = {
 
 describe('multiple', function() {
   beforeEach(function() {
-    reset(defaults)
+    reset('request', defaults)
   })
   
   it('one request', function() {

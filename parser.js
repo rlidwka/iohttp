@@ -3,6 +3,7 @@ module.exports.parse_request = function* parse_request(writer, mode) {
   var pos, len, buf, ch
   var conn_keepalive = false
   var conn_close = false
+  var version_correct
 
   // this function is executed every time a new data comes in;
   // basically, it's helper for resetting position and length
@@ -19,6 +20,25 @@ module.exports.parse_request = function* parse_request(writer, mode) {
   //  - flush() - return utf8-encoded string and reset buffer
   var add   = writer.add
   var flush = writer.flush
+
+  // skip linebreaks before request/status line,
+  // isn't applicable for headers mode
+  if (mode === 1 || mode === 2) {
+    while (true) {
+      ch = buf[pos]
+      if (ch === 0x0D) {
+        if (++pos >= len) next(yield)
+        if (buf[pos] === 0x0A) {
+          if (++pos >= len) next(yield)
+          continue
+        }
+      } else if (ch === 0x0A) {
+        if (++pos >= len) next(yield)
+        continue
+      }
+      break
+    }
+  }
 
   if (mode === 1 /* request */) {
     /*
@@ -39,22 +59,6 @@ module.exports.parse_request = function* parse_request(writer, mode) {
       contentLength   : 0, // -1 for chunked
       shouldKeepAlive : true,
       upgrade         : false,
-    }
-
-    // skip linebreaks before request line
-    while (true) {
-      ch = buf[pos]
-      if (ch === 0x0D) {
-        if (++pos >= len) next(yield)
-        if (buf[pos] === 0x0A) {
-          if (++pos >= len) next(yield)
-          continue
-        }
-      } else if (ch === 0x0A) {
-        if (++pos >= len) next(yield)
-        continue
-      }
-      break
     }
 
     // parse http method until we stumble across non-token char
@@ -87,20 +91,18 @@ module.exports.parse_request = function* parse_request(writer, mode) {
     result.url = flush()
     if (result.url.length === 0) return Error('Invalid URL')
 
-    var request_line_correct
-
     // ch is the first non-url char here,
     // it's either a space in HTTP/1+ or \r\n|\n in HTTP/0.9
-    if (ch === 0x20) VER: {
+    if (ch === 0x20) RVER: {
       if (++pos >= len) next(yield)
-      request_line_correct = false
+      version_correct = false
 
       // parse "HTTP" constant
-      if (buf[pos] !== 0x48 /* H */) break VER ; if (++pos >= len) next(yield)
-      if (buf[pos] !== 0x54 /* T */) break VER ; if (++pos >= len) next(yield)
-      if (buf[pos] !== 0x54 /* T */) break VER ; if (++pos >= len) next(yield)
-      if (buf[pos] !== 0x50 /* P */) break VER ; if (++pos >= len) next(yield)
-      if (buf[pos] !== 0x2f /* / */) break VER ; if (++pos >= len) next(yield)
+      if (buf[pos] !== 0x48 /* H */) break RVER ; if (++pos >= len) next(yield)
+      if (buf[pos] !== 0x54 /* T */) break RVER ; if (++pos >= len) next(yield)
+      if (buf[pos] !== 0x54 /* T */) break RVER ; if (++pos >= len) next(yield)
+      if (buf[pos] !== 0x50 /* P */) break RVER ; if (++pos >= len) next(yield)
+      if (buf[pos] !== 0x2f /* / */) break RVER ; if (++pos >= len) next(yield)
 
       // parse major HTTP version
       //
@@ -110,34 +112,40 @@ module.exports.parse_request = function* parse_request(writer, mode) {
       //       (HTTP/xxx.x will be parsed by a quantum computer
       //        anyway, and javascript doesn't work on those)
       ch = buf[pos]
-      if (!(0x30 <= ch && ch <= 0x39)) break VER
+      if (!(0x30 <= ch && ch <= 0x39)) break RVER
       result.versionMajor = buf[pos] - 0x30
       if (++pos >= len) next(yield)
 
-      if (buf[pos] !== 0x2e /* . */) break VER ; if (++pos >= len) next(yield)
+      if (buf[pos] !== 0x2e /* . */) break RVER ; if (++pos >= len) next(yield)
 
       // parse minor HTTP version
       ch = buf[pos]
-      if (!(0x30 <= ch && ch <= 0x39)) break VER
+      if (!(0x30 <= ch && ch <= 0x39)) break RVER
       result.versionMinor = buf[pos] - 0x30
       if (++pos >= len) next(yield)
 
       // parse patch HTTP ve... oh wait, I forgot, only npm stuff uses semver
-      request_line_correct = true
+      version_correct = true
     } else {
       result.versionMajor = 0
       result.versionMinor = 9
-      request_line_correct = true
+      version_correct = true
     }
 
-    if (!request_line_correct) return Error('Invalid HTTP version')
+    if (!version_correct) return Error('Invalid HTTP version')
 
     // CRLF | LF
     // Here an everywhere else we're making "\r" optional, because it's
     // very inconvenient to debug http servers with `nc` otherwise.
     if (buf[pos] === 0x0D) if (++pos >= len) next(yield)
     if (buf[pos] !== 0x0A) return Error('Invalid HTTP version')
-  } else if (mode === 2 /* response */) {
+
+  } else if (mode === 2 /* status line */) {
+    /*
+     *  Parse status line
+     *
+     *  http://tools.ietf.org/html/rfc7230#section-3.1.2
+     */
     var result = {
       statusCode      : 0,
       statusMessage   : null,
@@ -148,6 +156,77 @@ module.exports.parse_request = function* parse_request(writer, mode) {
       shouldKeepAlive : true,
       upgrade         : false,
     }
+
+    SVER: {
+      // same code as before basically
+      version_correct = false
+
+      // parse "HTTP" constant
+      if (buf[pos] !== 0x48 /* H */) break SVER ; if (++pos >= len) next(yield)
+      if (buf[pos] !== 0x54 /* T */) break SVER ; if (++pos >= len) next(yield)
+      if (buf[pos] !== 0x54 /* T */) break SVER ; if (++pos >= len) next(yield)
+      if (buf[pos] !== 0x50 /* P */) break SVER ; if (++pos >= len) next(yield)
+      if (buf[pos] !== 0x2f /* / */) break SVER ; if (++pos >= len) next(yield)
+
+      // major
+      ch = buf[pos]
+      if (!(0x30 <= ch && ch <= 0x39)) break SVER
+      result.versionMajor = buf[pos] - 0x30
+      if (++pos >= len) next(yield)
+
+      if (buf[pos] !== 0x2e /* . */) break SVER ; if (++pos >= len) next(yield)
+
+      // minor
+      ch = buf[pos]
+      if (!(0x30 <= ch && ch <= 0x39)) break SVER
+      result.versionMinor = buf[pos] - 0x30
+      if (++pos >= len) next(yield)
+
+      version_correct = true
+    }
+
+    if (!version_correct) return Error('Invalid HTTP version')
+
+    // HTTP/1.0 200 Here is your cookie
+    //         ^--- here
+    if (buf[pos] !== 0x20) return Error('Invalid HTTP version')
+    if (++pos >= len) next(yield)
+
+    // HTTP/1.0 200 Here is your cookie
+    //          ^^^--- parsing this thingy
+    for (var i=0; i<3; i++) {
+      ch = buf[pos]
+      if (!(0x30 <= ch && ch <= 0x39)) return Error('Invalid status')
+      result.statusCode = result.statusCode * 10 + buf[pos] - 0x30
+      if (++pos >= len) next(yield)
+    }
+
+    // HTTP/1.0 200 Here is your cookie
+    //             ^--- here
+    if (buf[pos] === 0x20) {
+      if (++pos >= len) next(yield)
+
+      // HTTP/1.0 200 Here is your cookie
+      //              ^^^^^^^^^^^^^^^^^^^ and now the rest of the line
+      while (true) {
+        ch = buf[pos]
+
+        // allow 0x09, 0x20-0x7E, 0x80-0xFF
+        if (ch === 0x7F || (ch < 0x20 && ch !== 0x09)) break
+
+        add(ch)
+        if (++pos >= len) next(yield)
+      }
+
+      result.statusMessage = flush()
+    } else {
+      // response without status line, e.g. `HTTP/1.0 200`
+      result.statusMessage = ''
+    }
+
+    // CRLF | LF
+    if (buf[pos] === 0x0D) if (++pos >= len) next(yield)
+    if (buf[pos] !== 0x0A) return Error('Invalid status line')
 
   } else if (mode === 0 /* just headers */) {
     var result = {

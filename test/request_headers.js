@@ -21,7 +21,7 @@ var defaults = {
 
 describe('request headers', function() {
   beforeEach(function() {
-    reset(defaults)
+    reset('request', defaults)
   })
   
   it('normal request', function() {
