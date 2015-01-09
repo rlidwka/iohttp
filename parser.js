@@ -84,14 +84,17 @@ module.exports.parse_request = function* parse_request(writer, mode) {
       if (++pos >= len) next(yield)
     }
 
-    // ch is the first non-url char here
-    if (ch !== 0x20) return Error('Invalid URL')
-    if (++pos >= len) next(yield)
     result.url = flush()
     if (result.url.length === 0) return Error('Invalid URL')
 
-    var request_line_correct = false
-    VER: {
+    var request_line_correct
+
+    // ch is the first non-url char here,
+    // it's either a space in HTTP/1+ or \r\n|\n in HTTP/0.9
+    if (ch === 0x20) VER: {
+      if (++pos >= len) next(yield)
+      request_line_correct = false
+
       // parse "HTTP" constant
       if (buf[pos] !== 0x48 /* H */) break VER ; if (++pos >= len) next(yield)
       if (buf[pos] !== 0x54 /* T */) break VER ; if (++pos >= len) next(yield)
@@ -120,18 +123,20 @@ module.exports.parse_request = function* parse_request(writer, mode) {
       if (++pos >= len) next(yield)
 
       // parse patch HTTP ve... oh wait, I forgot, only npm stuff uses semver
-
-      // CRLF | LF
-      // Here an everywhere else we're making "\r" optional, because it's
-      // very inconvenient to debug http servers with `nc` otherwise.
-      if (buf[pos] === 0x0D) if (++pos >= len) next(yield)
-      if (buf[pos] === 0x0A) {
-        request_line_correct = true
-      }
+      request_line_correct = true
+    } else {
+      result.versionMajor = 0
+      result.versionMinor = 9
+      request_line_correct = true
     }
 
     if (!request_line_correct) return Error('Invalid HTTP version')
 
+    // CRLF | LF
+    // Here an everywhere else we're making "\r" optional, because it's
+    // very inconvenient to debug http servers with `nc` otherwise.
+    if (buf[pos] === 0x0D) if (++pos >= len) next(yield)
+    if (buf[pos] !== 0x0A) return Error('Invalid HTTP version')
   } else if (mode === 2 /* response */) {
     var result = {
       statusCode      : 0,

@@ -116,5 +116,11 @@ describe('request headers', function() {
       'GET / HTTP/1.1\nfoo:',[0xce],[0xb1],[0xce],[0xb2],[0xce],[0xb3],[0xce],[0xb4],'\n\n'
     ].map(Buffer))
   })
+
+  it('good old http', function() {
+    expect(1, { url: '/woohoo', versionMajor: 0, versionMinor: 9, shouldKeepAlive: false })
+    expect(3, undefined)
+    execute('GET /woohoo\nHost: iojs.org\nfoo: bar\n\n')
+  })
 })
 

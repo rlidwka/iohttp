@@ -1,4 +1,5 @@
 var assert     = require('assert')
+var util       = require('util')
 var HTTPParser = require('../')
 
 //             v-- TODO: make this sound less Java-ish
@@ -67,8 +68,8 @@ module.exports.execute = function execute(chunks) {
   try {
     assert.deepEqual(expected_obj, received_obj)
   } catch(err) {
-    console.log('EXPECTED:', expected_obj)
-    console.log('RECEIVED:', received_obj)
+    console.log('EXPECTED:', util.inspect(expected_obj, null, Infinity))
+    console.log('RECEIVED:', util.inspect(received_obj, null, Infinity))
     throw err
   }
 }

@@ -110,7 +110,7 @@ describe('request line', function() {
   })
 
   it('spacing - 4', function() {
-    expect(Error('Invalid URL'))
+    expect(Error('Invalid HTTP version'))
     execute('GET /\tHTTP')
   })
 
@@ -120,7 +120,7 @@ describe('request line', function() {
   })
 
   it('spacing - 6', function() {
-    expect(Error('Invalid URL'))
+    expect(Error('Invalid HTTP version'))
     execute('GET /\t/ HTTP')
   })
 
@@ -196,6 +196,12 @@ describe('request line', function() {
   it('binary crap - 2', function() {
     expect(Error('Invalid HTTP method'))
     execute([Buffer(0x00)])
+  })
+
+  it('good old http', function() {
+    expect(1, { url: '/woohoo', versionMajor: 0, versionMinor: 9 })
+    expect(3, undefined)
+    execute('GET /woohoo\n\n')
   })
 })
 
