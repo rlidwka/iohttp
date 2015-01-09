@@ -386,6 +386,14 @@ module.exports.parse_request = function* parse_request(writer, mode) {
     result.contentLength = 0
   }
 
+  if (mode === 2 && result.contentLength === Infinity) {
+    var i = result.statusCode
+    if ((i >= 100 && i < 200) || i === 204 || i === 304) {
+      // those status codes have no body
+      result.contentLength = 0
+    }
+  }
+
   return result
 }
 
