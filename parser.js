@@ -313,7 +313,7 @@ module.exports.parse_request = function* parse_request(writer, mode) {
     headers.push(t)
     switch (last_header.toLowerCase()) {
       case 'content-length':
-        if (t.match(/^\d+$/)) result.contentLength = parseInt(t, 10)
+        if (t.match(/^ *\d+ *$/)) result.contentLength = parseInt(t, 10)
         break
       case 'transfer-encoding':
         if (t === 'chunked') result.contentLength = -1

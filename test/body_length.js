@@ -36,6 +36,14 @@ describe('body length', function() {
     execute('POST / HTTP/1.1\nContent-Length: 5\n\nhello@')
   })
 
+  it('spaced content-length', function() {
+    expect(1, { headers: [ 'Content-Length', '5  ' ] })
+    expect(2, 'hello')
+    expect(3, undefined)
+    execute('POST / HTTP/1.1\nContent-Length:   5  \n\nhello')
+  })
+
+
   it('content-length splitted across multiple packets', function() {
     expect(1, {})
     expect(2, 'he')
