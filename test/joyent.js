@@ -2,8 +2,11 @@ var assert  = require('assert')
 var util    = require('util')
 var Builtin = process.binding('http_parser').HTTPParser
 var Testing = require('../')
+var type
 
 describe('joyent/http-parser - request', function() {
+  type = 'REQUEST'
+
   add('curl get',
       "GET /test HTTP/1.1\r\n"
     + "User-Agent: curl/7.18.0 (i486-pc-linux-gnu) libcurl/7.18.0 OpenSSL/0.9.8g zlib/1.2.3.3 libidn/1.1\r\n"
@@ -299,238 +302,243 @@ describe('joyent/http-parser - request', function() {
 
 /* * R E S P O N S E S * */
 
-res('google 301',
-    "HTTP/1.1 301 Moved Permanently\r\n"
-  + "Location: http://www.google.com/\r\n"
-  + "Content-Type: text/html; charset=UTF-8\r\n"
-  + "Date: Sun, 26 Apr 2009 11:11:49 GMT\r\n"
-  + "Expires: Tue, 26 May 2009 11:11:49 GMT\r\n"
-  + "X-$PrototypeBI-Version: 1.6.0.3\r\n" /* $ char in header field */
-  + "Cache-Control: public, max-age=2592000\r\n"
-  + "Server: gws\r\n"
-  + "Content-Length:  219  \r\n"
-  + "\r\n"
-  + "<HTML><HEAD><meta http-equiv=\"content-type\" content=\"text/html;charset=utf-8\">\n"
-  + "<TITLE>301 Moved</TITLE></HEAD><BODY>\n"
-  + "<H1>301 Moved</H1>\n"
-  + "The document has moved\n"
-  + "<A HREF=\"http://www.google.com/\">here</A>.\r\n"
-  + "</BODY></HTML>\r\n"
-)
+describe('joyent/http-parser - response', function() {
+  type = 'RESPONSE'
 
-/* The client should wait for the server's EOF. That is, when content-length
- * is not specified, and "Connection: close", the end of body is specified
- * by the EOF.
- * Compare with APACHEBENCH_GET
- */
-res('no content-length response',
-    "HTTP/1.1 200 OK\r\n"
-  + "Date: Tue, 04 Aug 2009 07:59:32 GMT\r\n"
-  + "Server: Apache\r\n"
-  + "X-Powered-By: Servlet/2.5 JSP/2.1\r\n"
-  + "Content-Type: text/xml; charset=utf-8\r\n"
-  + "Connection: close\r\n"
-  + "\r\n"
-  + "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-  + "<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\">\n"
-  + "  <SOAP-ENV:Body>\n"
-  + "    <SOAP-ENV:Fault>\n"
-  + "       <faultcode>SOAP-ENV:Client</faultcode>\n"
-  + "       <faultstring>Client Error</faultstring>\n"
-  + "    </SOAP-ENV:Fault>\n"
-  + "  </SOAP-ENV:Body>\n"
-  + "</SOAP-ENV:Envelope>"
-)
+  add('google 301',
+      "HTTP/1.1 301 Moved Permanently\r\n"
+    + "Location: http://www.google.com/\r\n"
+    + "Content-Type: text/html; charset=UTF-8\r\n"
+    + "Date: Sun, 26 Apr 2009 11:11:49 GMT\r\n"
+    + "Expires: Tue, 26 May 2009 11:11:49 GMT\r\n"
+    + "X-$PrototypeBI-Version: 1.6.0.3\r\n" /* $ char in header field */
+    + "Cache-Control: public, max-age=2592000\r\n"
+    + "Server: gws\r\n"
+    + "Content-Length:  219  \r\n"
+    + "\r\n"
+    + "<HTML><HEAD><meta http-equiv=\"content-type\" content=\"text/html;charset=utf-8\">\n"
+    + "<TITLE>301 Moved</TITLE></HEAD><BODY>\n"
+    + "<H1>301 Moved</H1>\n"
+    + "The document has moved\n"
+    + "<A HREF=\"http://www.google.com/\">here</A>.\r\n"
+    + "</BODY></HTML>\r\n"
+  )
 
-res('404 no headers no body',
-    "HTTP/1.1 404 Not Found\r\n\r\n"
-)
+  /* The client should wait for the server's EOF. That is, when content-length
+   * is not specified, and "Connection: close", the end of body is specified
+   * by the EOF.
+   * Compare with APACHEBENCH_GET
+   */
+  add('no content-length response',
+      "HTTP/1.1 200 OK\r\n"
+    + "Date: Tue, 04 Aug 2009 07:59:32 GMT\r\n"
+    + "Server: Apache\r\n"
+    + "X-Powered-By: Servlet/2.5 JSP/2.1\r\n"
+    + "Content-Type: text/xml; charset=utf-8\r\n"
+    + "Connection: close\r\n"
+    + "\r\n"
+    + "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+    + "<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\">\n"
+    + "  <SOAP-ENV:Body>\n"
+    + "    <SOAP-ENV:Fault>\n"
+    + "       <faultcode>SOAP-ENV:Client</faultcode>\n"
+    + "       <faultstring>Client Error</faultstring>\n"
+    + "    </SOAP-ENV:Fault>\n"
+    + "  </SOAP-ENV:Body>\n"
+    + "</SOAP-ENV:Envelope>"
+  )
 
-res('301 no response phrase',
-    "HTTP/1.1 301\r\n\r\n"
-)
+  add('404 no headers no body',
+      "HTTP/1.1 404 Not Found\r\n\r\n"
+  )
 
-res('200 trailing space on chunked body',
-    "HTTP/1.1 200 OK\r\n"
-  + "Content-Type: text/plain\r\n"
-  + "Transfer-Encoding: chunked\r\n"
-  + "\r\n"
-  + "25  \r\n"
-  + "This is the data in the first chunk\r\n"
-  + "\r\n"
-  + "1C\r\n"
-  + "and this is the second one\r\n"
-  + "\r\n"
-  + "0  \r\n"
-  + "\r\n"
-)
+  add('301 no response phrase',
+      "HTTP/1.1 301\r\n\r\n"
+  )
 
-res('no carriage ret',
-    "HTTP/1.1 200 OK\n"
-  + "Content-Type: text/html; charset=utf-8\n"
-  + "Connection: close\n"
-  + "\n"
-  + "these headers are from http://news.ycombinator.com/"
-)
+  add('200 trailing space on chunked body',
+      "HTTP/1.1 200 OK\r\n"
+    + "Content-Type: text/plain\r\n"
+    + "Transfer-Encoding: chunked\r\n"
+    + "\r\n"
+    + "25  \r\n"
+    + "This is the data in the first chunk\r\n"
+    + "\r\n"
+    + "1C\r\n"
+    + "and this is the second one\r\n"
+    + "\r\n"
+    + "0  \r\n"
+    + "\r\n"
+  )
 
-res('proxy connection',
-    "HTTP/1.1 200 OK\r\n"
-  + "Content-Type: text/html; charset=UTF-8\r\n"
-  + "Content-Length: 11\r\n"
-  + "Proxy-Connection: close\r\n"
-  + "Date: Thu, 31 Dec 2009 20:55:48 +0000\r\n"
-  + "\r\n"
-  + "hello world"
-)
+  add('no carriage ret',
+      "HTTP/1.1 200 OK\n"
+    + "Content-Type: text/html; charset=utf-8\n"
+    + "Connection: close\n"
+    + "\n"
+    + "these headers are from http://news.ycombinator.com/"
+  )
+
+  add('proxy connection',
+      "HTTP/1.1 200 OK\r\n"
+    + "Content-Type: text/html; charset=UTF-8\r\n"
+    + "Content-Length: 11\r\n"
+    + "Proxy-Connection: close\r\n"
+    + "Date: Thu, 31 Dec 2009 20:55:48 +0000\r\n"
+    + "\r\n"
+    + "hello world"
+  )
 
   // shown by
   // curl -o /dev/null -v "http://ad.doubleclick.net/pfadx/DARTSHELLCONFIGXML;dcmt=text/xml;"
-res('underscore header key',
-    "HTTP/1.1 200 OK\r\n"
-  + "Server: DCLK-AdSvr\r\n"
-  + "Content-Type: text/xml\r\n"
-  + "Content-Length: 0\r\n"
-  + "DCLK_imp: v7;x;114750856;0-0;0;17820020;0/0;21603567/21621457/1;;~okv=;dcmt=text/xml;;~cs=o\r\n\r\n"
-)
+  add('underscore header key',
+      "HTTP/1.1 200 OK\r\n"
+    + "Server: DCLK-AdSvr\r\n"
+    + "Content-Type: text/xml\r\n"
+    + "Content-Length: 0\r\n"
+    + "DCLK_imp: v7;x;114750856;0-0;0;17820020;0/0;21603567/21621457/1;;~okv=;dcmt=text/xml;;~cs=o\r\n\r\n"
+  )
 
-/* The client should not merge two headers fields when the first one doesn't
- * have a value.
- */
-res('bonjourmadame.fr',
-    "HTTP/1.0 301 Moved Permanently\r\n"
-  + "Date: Thu, 03 Jun 2010 09:56:32 GMT\r\n"
-  + "Server: Apache/2.2.3 (Red Hat)\r\n"
-  + "Cache-Control: public\r\n"
-  + "Pragma: \r\n"
-  + "Location: http://www.bonjourmadame.fr/\r\n"
-  + "Vary: Accept-Encoding\r\n"
-  + "Content-Length: 0\r\n"
-  + "Content-Type: text/html; charset=UTF-8\r\n"
-  + "Connection: keep-alive\r\n"
-  + "\r\n"
-)
+  /* The client should not merge two headers fields when the first one doesn't
+   * have a value.
+   */
+  add('bonjourmadame.fr',
+      "HTTP/1.0 301 Moved Permanently\r\n"
+    + "Date: Thu, 03 Jun 2010 09:56:32 GMT\r\n"
+    + "Server: Apache/2.2.3 (Red Hat)\r\n"
+    + "Cache-Control: public\r\n"
+    + "Pragma: \r\n"
+    + "Location: http://www.bonjourmadame.fr/\r\n"
+    + "Vary: Accept-Encoding\r\n"
+    + "Content-Length: 0\r\n"
+    + "Content-Type: text/html; charset=UTF-8\r\n"
+    + "Connection: keep-alive\r\n"
+    + "\r\n"
+  )
 
-/* Should handle spaces in header fields */
-res('field underscore',
-    "HTTP/1.1 200 OK\r\n"
-  + "Date: Tue, 28 Sep 2010 01:14:13 GMT\r\n"
-  + "Server: Apache\r\n"
-  + "Cache-Control: no-cache, must-revalidate\r\n"
-  + "Expires: Mon, 26 Jul 1997 05:00:00 GMT\r\n"
-  + ".et-Cookie: PlaxoCS=1274804622353690521; path=/; domain=.plaxo.com\r\n"
-  + "Vary: Accept-Encoding\r\n"
-  + "_eep-Alive: timeout=45\r\n" /* semantic value ignored */
-  + "_onnection: Keep-Alive\r\n" /* semantic value ignored */
-  + "Transfer-Encoding: chunked\r\n"
-  + "Content-Type: text/html\r\n"
-  + "Connection: close\r\n"
-  + "\r\n"
-  + "0\r\n\r\n"
-)
+  /* Should handle spaces in header fields */
+  add('field underscore',
+      "HTTP/1.1 200 OK\r\n"
+    + "Date: Tue, 28 Sep 2010 01:14:13 GMT\r\n"
+    + "Server: Apache\r\n"
+    + "Cache-Control: no-cache, must-revalidate\r\n"
+    + "Expires: Mon, 26 Jul 1997 05:00:00 GMT\r\n"
+    + ".et-Cookie: PlaxoCS=1274804622353690521; path=/; domain=.plaxo.com\r\n"
+    + "Vary: Accept-Encoding\r\n"
+    + "_eep-Alive: timeout=45\r\n" /* semantic value ignored */
+    + "_onnection: Keep-Alive\r\n" /* semantic value ignored */
+    + "Transfer-Encoding: chunked\r\n"
+    + "Content-Type: text/html\r\n"
+    + "Connection: close\r\n"
+    + "\r\n"
+    + "0\r\n\r\n"
+  )
 
-/* Should handle non-ASCII in status line */
-res('non-ASCII in status line',
-    "HTTP/1.1 500 Oriëntatieprobleem\r\n"
-  + "Date: Fri, 5 Nov 2010 23:07:12 GMT+2\r\n"
-  + "Content-Length: 0\r\n"
-  + "Connection: close\r\n"
-  + "\r\n"
-)
+  /* Should handle non-ASCII in status line */
+  add('non-ASCII in status line',
+      "HTTP/1.1 500 Oriëntatieprobleem\r\n"
+    + "Date: Fri, 5 Nov 2010 23:07:12 GMT+2\r\n"
+    + "Content-Length: 0\r\n"
+    + "Connection: close\r\n"
+    + "\r\n"
+  )
 
-/* Should handle HTTP/0.9 */
-res('http version 0.9',
-    "HTTP/0.9 200 OK\r\n"
-  + "\r\n"
-)
+  /* Should handle HTTP/0.9 */
+  add('http version 0.9',
+      "HTTP/0.9 200 OK\r\n"
+    + "\r\n"
+  )
 
-/* The client should wait for the server's EOF. That is, when neither
- * content-length nor transfer-encoding is specified, the end of body
- * is specified by the EOF.
- */
-res('neither content-length nor transfer-encoding response',
-    "HTTP/1.1 200 OK\r\n"
-  + "Content-Type: text/plain\r\n"
-  + "\r\n"
-  + "hello world"
-)
+  /* The client should wait for the server's EOF. That is, when neither
+   * content-length nor transfer-encoding is specified, the end of body
+   * is specified by the EOF.
+   */
+  add('neither content-length nor transfer-encoding response',
+      "HTTP/1.1 200 OK\r\n"
+    + "Content-Type: text/plain\r\n"
+    + "\r\n"
+    + "hello world"
+  )
 
-res('HTTP/1.0 with keep-alive and EOF-terminated 200 status',
-    "HTTP/1.0 200 OK\r\n"
-  + "Connection: keep-alive\r\n"
-  + "\r\n"
-)
+  add('HTTP/1.0 with keep-alive and EOF-terminated 200 status',
+      "HTTP/1.0 200 OK\r\n"
+    + "Connection: keep-alive\r\n"
+    + "\r\n"
+  )
 
-res('HTTP/1.0 with keep-alive and a 204 status',
-    "HTTP/1.0 204 No content\r\n"
-  + "Connection: keep-alive\r\n"
-  + "\r\n"
-)
+  add('HTTP/1.0 with keep-alive and a 204 status',
+      "HTTP/1.0 204 No content\r\n"
+    + "Connection: keep-alive\r\n"
+    + "\r\n"
+  )
 
-res('HTTP/1.1 with an EOF-terminated 200 status',
-    "HTTP/1.1 200 OK\r\n"
-  + "\r\n"
-)
+  add('HTTP/1.1 with an EOF-terminated 200 status',
+      "HTTP/1.1 200 OK\r\n"
+    + "\r\n"
+  )
 
-res('HTTP/1.1 with a 204 status',
-    "HTTP/1.1 204 No content\r\n"
-  + "\r\n"
-)
+  add('HTTP/1.1 with a 204 status',
+      "HTTP/1.1 204 No content\r\n"
+    + "\r\n"
+  )
 
-res('HTTP/1.1 with a 204 status and keep-alive disabled',
-    "HTTP/1.1 204 No content\r\n"
-  + "Connection: close\r\n"
-  + "\r\n"
-)
+  add('HTTP/1.1 with a 204 status and keep-alive disabled',
+      "HTTP/1.1 204 No content\r\n"
+    + "Connection: close\r\n"
+    + "\r\n"
+  )
 
-res('HTTP/1.1 with chunked endocing and a 200 response',
-    "HTTP/1.1 200 OK\r\n"
-  + "Transfer-Encoding: chunked\r\n"
-  + "\r\n"
-  + "0\r\n"
-  + "\r\n"
-)
+  add('HTTP/1.1 with chunked endocing and a 200 response',
+      "HTTP/1.1 200 OK\r\n"
+    + "Transfer-Encoding: chunked\r\n"
+    + "\r\n"
+    + "0\r\n"
+    + "\r\n"
+  )
 
-/* Should handle spaces in header fields */
-res('field space',
-    "HTTP/1.1 200 OK\r\n"
-  + "Server: Microsoft-IIS/6.0\r\n"
-  + "X-Powered-By: ASP.NET\r\n"
-  + "en-US Content-Type: text/xml\r\n" /* this is the problem */
-  + "Content-Type: text/xml\r\n"
-  + "Content-Length: 16\r\n"
-  + "Date: Fri, 23 Jul 2010 18:45:38 GMT\r\n"
-  + "Connection: keep-alive\r\n"
-  + "\r\n"
-  + "<xml>hello</xml>" /* fake body */
-)
+  /* Should handle spaces in header fields */
+  add('field space',
+      "HTTP/1.1 200 OK\r\n"
+    + "Server: Microsoft-IIS/6.0\r\n"
+    + "X-Powered-By: ASP.NET\r\n"
+    + "en-US Content-Type: text/xml\r\n" /* this is the problem */
+    + "Content-Type: text/xml\r\n"
+    + "Content-Length: 16\r\n"
+    + "Date: Fri, 23 Jul 2010 18:45:38 GMT\r\n"
+    + "Connection: keep-alive\r\n"
+    + "\r\n"
+    + "<xml>hello</xml>" /* fake body */
+  )
 
-res('amazon.com',
-    "HTTP/1.1 301 MovedPermanently\r\n"
-  + "Date: Wed, 15 May 2013 17:06:33 GMT\r\n"
-  + "Server: Server\r\n"
-  + "x-amz-id-1: 0GPHKXSJQ826RK7GZEB2\r\n"
-  + "p3p: policyref=\"http://www.amazon.com/w3c/p3p.xml\",CP=\"CAO DSP LAW CUR ADM IVAo IVDo CONo OTPo OUR DELi PUBi OTRi BUS PHY ONL UNI PUR FIN COM NAV INT DEM CNT STA HEA PRE LOC GOV OTC \"\r\n"
-  + "x-amz-id-2: STN69VZxIFSz9YJLbz1GDbxpbjG6Qjmmq5E3DxRhOUw+Et0p4hr7c/Q8qNcx4oAD\r\n"
-  + "Location: http://www.amazon.com/Dan-Brown/e/B000AP9DSU/ref=s9_pop_gw_al1?_encoding=UTF8&refinementId=618073011&pf_rd_m=ATVPDKIKX0DER&pf_rd_s=center-2&pf_rd_r=0SHYY5BZXN3KR20BNFAY&pf_rd_t=101&pf_rd_p=1263340922&pf_rd_i=507846\r\n"
-  + "Vary: Accept-Encoding,User-Agent\r\n"
-  + "Content-Type: text/html; charset=ISO-8859-1\r\n"
-  + "Transfer-Encoding: chunked\r\n"
-  + "\r\n"
-  + "1\r\n"
-  + "\n\r\n"
-  + "0\r\n"
-  + "\r\n"
-)
+  add('amazon.com',
+      "HTTP/1.1 301 MovedPermanently\r\n"
+    + "Date: Wed, 15 May 2013 17:06:33 GMT\r\n"
+    + "Server: Server\r\n"
+    + "x-amz-id-1: 0GPHKXSJQ826RK7GZEB2\r\n"
+    + "p3p: policyref=\"http://www.amazon.com/w3c/p3p.xml\",CP=\"CAO DSP LAW CUR ADM IVAo IVDo CONo OTPo OUR DELi PUBi OTRi BUS PHY ONL UNI PUR FIN COM NAV INT DEM CNT STA HEA PRE LOC GOV OTC \"\r\n"
+    + "x-amz-id-2: STN69VZxIFSz9YJLbz1GDbxpbjG6Qjmmq5E3DxRhOUw+Et0p4hr7c/Q8qNcx4oAD\r\n"
+    + "Location: http://www.amazon.com/Dan-Brown/e/B000AP9DSU/ref=s9_pop_gw_al1?_encoding=UTF8&refinementId=618073011&pf_rd_m=ATVPDKIKX0DER&pf_rd_s=center-2&pf_rd_r=0SHYY5BZXN3KR20BNFAY&pf_rd_t=101&pf_rd_p=1263340922&pf_rd_i=507846\r\n"
+    + "Vary: Accept-Encoding,User-Agent\r\n"
+    + "Content-Type: text/html; charset=ISO-8859-1\r\n"
+    + "Transfer-Encoding: chunked\r\n"
+    + "\r\n"
+    + "1\r\n"
+    + "\n\r\n"
+    + "0\r\n"
+    + "\r\n"
+  )
 
-res('empty reason phrase after space',
-    "HTTP/1.1 200 \r\n"
-  + "\r\n"
-)
+  add('empty reason phrase after space',
+      "HTTP/1.1 200 \r\n"
+    + "\r\n"
+  )
+})
 
 function add(name, test) {
+  var _type = type
   var fn = function() {
-    var builtin = new Builtin(Builtin.REQUEST)
-    var testing = new Testing(Testing.REQUEST)
+    var builtin = new Builtin(Builtin[_type])
+    var testing = new Testing(Testing[_type])
     var expected = []
     var received = []
     builtin[0] = function(){ expected.push({ 0: arguments }) }
@@ -573,4 +581,3 @@ function add(name, test) {
   }
 }
 
-function res(){}

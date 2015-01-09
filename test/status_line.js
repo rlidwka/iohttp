@@ -8,7 +8,7 @@ var defaults = {
   versionMajor    : 1,
   versionMinor    : 0,
   headers         : [],
-  contentLength   : 0,
+  contentLength   : Infinity,
   shouldKeepAlive : false,
   upgrade         : false,
 }
@@ -20,7 +20,6 @@ describe('status line', function() {
 
   it('normal response', function() {
     expect(1, { statusCode: 999 })
-    expect(3, undefined)
     execute('HTTP/1.0 999 OK\n\n')
   })
 
@@ -41,37 +40,31 @@ describe('status line', function() {
 
   it('no status - 1', function() {
     expect(1, { statusMessage: '' })
-    expect(3, undefined)
     execute('HTTP/1.0 200\n\n')
   })
 
   it('no status - 2', function() {
     expect(1, { statusMessage: '' })
-    expect(3, undefined)
     execute('HTTP/1.0 200 \n\n')
   })
 
   it('space status', function() {
     expect(1, { statusMessage: '     ' })
-    expect(3, undefined)
     execute('HTTP/1.0 200      \n\n')
   })
 
   it('cr - 1', function() {
     expect(1, {})
-    expect(3, undefined)
     execute('HTTP/1.0 200 OK\r\n\r\n')
   })
 
   it('cr - 2', function() {
     expect(1, {})
-    expect(3, undefined)
     execute('HTTP/1.0 200 OK\n\r\n')
   })
 
   it('cr - 3', function() {
     expect(1, {})
-    expect(3, undefined)
     execute('HTTP/1.0 200 OK\r\n\n')
   })
 
@@ -81,8 +74,7 @@ describe('status line', function() {
   })
 
   it('version check - 1', function() {
-    expect(1, { versionMajor: 8, versionMinor: 9, shouldKeepAlive: true })
-    expect(3, undefined)
+    expect(1, { versionMajor: 8, versionMinor: 9 })
     execute('HTTP/8.9 200 OK\n\n')
   })
 
@@ -108,19 +100,16 @@ describe('status line', function() {
 
   it('chunks', function() {
     expect(1, { statusMessage: 'All good here' })
-    expect(3, undefined)
     execute('HTTP/1.0 200 All good here\n\n'.split(''))
   })
 
   it('unicode again', function() {
     expect(1, { statusMessage: 'αβγδ' })
-    expect(3, undefined)
     execute('HTTP/1.0 200 αβγδ\n\n')
   })
 
   it('unicode splitting', function() {
     expect(1, { statusMessage: 'αβγδ' })
-    expect(3, undefined)
     execute([
       'HTTP/1.0 200 ',[0xce],[0xb1],[0xce],[0xb2],[0xce],[0xb3],[0xce],[0xb4],'\n\n'
     ].map(Buffer))

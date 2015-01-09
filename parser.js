@@ -152,7 +152,7 @@ module.exports.parse_request = function* parse_request(writer, mode) {
       versionMajor    : -1,
       versionMinor    : -1,
       headers         : [],
-      contentLength   : 0,
+      contentLength   : Infinity,
       shouldKeepAlive : true,
       upgrade         : false,
     }
@@ -364,14 +364,33 @@ module.exports.parse_request = function* parse_request(writer, mode) {
     buf.start = pos
   }
 
+  // should we keep this poor little connection alive?.. or kill it? :(
   if (result.shouldKeepAlive !== undefined) {
-    // should we keep this poor little connection alive?.. or kill it? :(
     if (result.versionMajor > 0 && result.versionMinor > 0) {
       // HTTP/1.1 (or HTTP/3.8 'cause why not)
-      if (conn_close) result.shouldKeepAlive = false
+      if (conn_close) {
+        result.shouldKeepAlive = false
+      }
     } else {
       // HTTP/1.0 or HTTP/0.9
-      if (!conn_keepalive) result.shouldKeepAlive = false
+      if (!conn_keepalive) {
+        result.shouldKeepAlive = false
+      }
+    }
+
+    // if we still think keep-alive is a good idea, check further
+    if (result.shouldKeepAlive && mode === 2 /* request */) {
+      var i = result.statusCode
+      if ((i >= 100 && i < 200) || i === 204 || i === 304) {
+        // those status codes have no body
+        result.shouldKeepAlive = true
+      } else if (result.contentLength === Infinity) {
+        // we should read this til eof, so...
+        result.shouldKeepAlive = false
+      } else {
+        // chunked or fixed content-length
+        result.shouldKeepAlive = true
+      }
     }
   }
 
