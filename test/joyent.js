@@ -543,6 +543,12 @@ function add(name, test) {
     var received = []
     builtin[0] = function(){ expected.push({ 0: arguments }) }
     builtin[1] = function(arg) {
+      if (arg.statusMessage) {
+        arg.statusMessage = Buffer(arg.statusMessage, 'binary').toString('utf8')
+      }
+      if (arg.url) {
+        arg.url = Buffer(arg.url, 'binary').toString('utf8')
+      }
       expected.push({ 1: arg })
     }
     builtin[2] = function(buf, from, to) {
