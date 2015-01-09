@@ -561,9 +561,18 @@ function add(name, test) {
     testing[3] = function(){ received.push({ 3: arguments }) }
 
     var t = builtin.execute(Buffer(test))
-    if (util.isError(t)) expected.push({ error: t.message })
+    if (util.isError(t)) {
+      expected.push({ error: t.message })
+    } else {
+      expected.push({ bytes: t })
+    }
+
     var t = testing.execute(Buffer(test))
-    if (util.isError(t)) received.push({ error: t.message })
+    if (util.isError(t)) {
+      received.push({ error: t.message })
+    } else {
+      received.push({ bytes: t })
+    }
 
     try {
       assert.deepEqual(expected, received)

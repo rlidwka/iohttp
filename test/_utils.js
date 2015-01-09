@@ -59,7 +59,7 @@ module.exports.execute = function execute(chunks) {
 
   for (var chunk of chunks) {
     var err = parser.execute(typeof(chunk) === 'string' ? Buffer(chunk) : chunk)
-    if (err) {
+    if (util.isError(err)) {
       received_obj.push({ error: err.message })
       break
     }

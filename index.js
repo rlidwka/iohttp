@@ -39,10 +39,11 @@ HTTPParser.prototype.reinitialize = function(type) {
   this.parser = parse_request(this.writer, type)
   this.parser.next()
 
-  this.url   = ''
-  this.stage = 0
-  this.type  = type
-  this.error = null
+  this.url      = ''
+  this.stage    = 0
+  this.type     = type
+  this.error    = null
+  this.upgraded = false
 }
 
 HTTPParser.prototype.close = function() {
@@ -51,6 +52,7 @@ HTTPParser.prototype.close = function() {
 
 HTTPParser.prototype.execute = function(data, start) {
   if (this.error !== null) return this.error
+  if (this.upgraded) return start
 
   start = start || 0
   data.start = start
@@ -84,12 +86,14 @@ HTTPParser.prototype.execute = function(data, start) {
         value.method = i
       }
 
+      if (value.upgrade) this.upgraded = true
+
       var len = value.contentLength
       this[1](value)
       this.url = value.url
       if (!len) {
         this[3]()
-        this.reinitialize()
+        if (!value.upgrade) this.reinitialize()
       } else {
         this.stage++
         this.parser = parse_body(len)
@@ -126,6 +130,8 @@ HTTPParser.prototype.execute = function(data, start) {
   if (data.start !== start && data.start < data.length) {
     return this.execute(data, data.start)
   }
+
+  return data.length
 }
 
 HTTPParser.prototype.finish = function() {

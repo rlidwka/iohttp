@@ -77,6 +77,7 @@ module.exports.parse_request = function* parse_request(writer, mode) {
     if (ch !== 0x20) return Error('Invalid HTTP method')
     if (++pos >= len) next(yield)
     result.methodString = flush()
+    if (result.methodString === 'CONNECT') result.upgrade = true
 
     // parse http url, just wait until a non-printable char
     // or a space comes out
@@ -332,10 +333,9 @@ module.exports.parse_request = function* parse_request(writer, mode) {
         break
       case 'connection':
       case 'proxy-connection':
-        // I mistyped this for "Keep-Alice". Twice. Ouch...
-        // should I get married or something?
-        if (t.match(/(^|,)\s*keep-alive\s*(,|$)/)) conn_keepalive = true
-        if (t.match(/(^|,)\s*close\s*(,|$)/)) conn_close = true
+        if (t.match(/(^|,)\s*keep-alive\s*(,|$)/i)) conn_keepalive = true
+        if (t.match(/(^|,)\s*close\s*(,|$)/i))      conn_close = true
+        if (t.match(/(^|,)\s*upgrade\s*(,|$)/i))    result.upgrade = true
         break
     }
 
@@ -392,6 +392,11 @@ module.exports.parse_request = function* parse_request(writer, mode) {
         result.shouldKeepAlive = true
       }
     }
+  }
+
+  if (result.upgrade) {
+    // no content for upgraded requests, those are handled separate
+    result.contentLength = 0
   }
 
   return result
