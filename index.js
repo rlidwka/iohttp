@@ -44,14 +44,12 @@ HTTPParser.prototype.reinitialize = function(type) {
   this.type     = type
   this.error    = null
   this.upgraded = false
-}
-
-HTTPParser.prototype.close = function() {
-  throw Error('unimplemented')
+  this.paused   = false
 }
 
 HTTPParser.prototype.execute = function(data, start) {
   if (this.error !== null) return this.error
+  if (this.paused) return Error('Parser is paused')
   if (this.upgraded) return start
 
   start = start || 0
@@ -102,7 +100,7 @@ HTTPParser.prototype.execute = function(data, start) {
     }
   } else if (this.stage === 1) {
     if (!result.done) {
-      if (value) this[2](value)
+      if (value) this[2](value, 0, value.length)
     } else {
       if (value === true) {
         // here be dragons... I mean, trailers
@@ -110,7 +108,7 @@ HTTPParser.prototype.execute = function(data, start) {
         this.parser = parse_request(this.writer, 0)
         this.parser.next()
       } else {
-        if (value) this[2](value)
+        if (value) this[2](value, 0, value.length)
         this[3]()
         this.reinitialize()
       }
@@ -134,16 +132,17 @@ HTTPParser.prototype.execute = function(data, start) {
   return data.length
 }
 
+HTTPParser.prototype.close =
 HTTPParser.prototype.finish = function() {
-  throw Error('unimplemented')
+  return undefined
 }
 
 HTTPParser.prototype.pause = function() {
-  throw Error('unimplemented')
+  this.paused = true
 }
 
 HTTPParser.prototype.resume = function() {
-  throw Error('unimplemented')
+  this.paused = false
 }
 
 HTTPParser.ANY                = 0
