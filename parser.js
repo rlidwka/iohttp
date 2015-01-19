@@ -287,24 +287,38 @@ module.exports.parse_request = function* parse_request(writer, mode) {
     if (ch !== 0x3a /* : */) return Error('Invalid header')
     if (++pos >= len) next(yield)
 
-    // OWS skipping
-    ch = buf[pos]
-    while (ch === 0x20 || ch === 0x09) {
-      if (++pos >= len) next(yield)
-      ch = buf[pos]
-    }
-
     // loop through field-vchars array
     //
     // Accept: foo, bar, baz
-    //         ^^^^^^^^^^^^^ here
+    //        ^^^^^^^^^^^^^^ here
+    var got_non_ws = false
     while (true) {
       ch = buf[pos]
 
-      // allow 0x09, 0x20-0x7E, 0x80-0xFF
-      if (ch === 0x7F || (ch < 0x20 && ch !== 0x09)) break
+      // check for CRLF | LF, it might be end of header or obs-fold
+      if (ch === 0x0D || ch === 0x0A) {
+        if (ch === 0x0D) if (++pos >= len) next(yield)
+        if (buf[pos] === 0x0A) {
+          if (++pos >= len) next(yield)
 
-      add(ch)
+          ch = buf[pos]
+          if (ch !== 0x20 && ch !== 0x09) {
+            // not a folding, so ending the header
+            break
+          }
+        }
+      }
+
+      // allow 0x09, 0x20-0x7E, 0x80-0xFF
+      if (ch === 0x20 || ch === 0x09) {
+        // just a whitespace
+      } else if (ch > 0x20 && ch !== 0x7F) {
+        got_non_ws = true
+      } else {
+        break
+      }
+
+      if (got_non_ws) add(ch)
       if (++pos >= len) next(yield)
     }
 
@@ -324,20 +338,6 @@ module.exports.parse_request = function* parse_request(writer, mode) {
         if (t.match(/(^|,)\s*upgrade\s*(,|$)/i))    result.upgrade = true
         break
     }
-
-    // CRLF | LF
-    if (ch === 0x0D) {
-      if (++pos >= len) next(yield)
-      if (buf[pos] === 0x0A) {
-        if (++pos >= len) next(yield)
-        continue
-      }
-    } else if (ch === 0x0A) {
-      if (++pos >= len) next(yield)
-      continue
-    }
-
-    return Error('Invalid header')
   }
 
   if (++pos < len) {
