@@ -4,12 +4,17 @@ var parse_body = require('./parser').parse_body
 module.exports = HTTPParser
 
 function Writer() {
-  var buffer = Buffer(8096)
-  var zpos = 0
+  var size   = 8096
+  var buffer = Buffer(size)
+  var zpos   = 0
   return {
     add: function(num) {
       buffer[zpos++] = num
-      if (zpos > 8096) zpos = 0
+      if (zpos >= size) {
+        var oldbuf = buffer
+        buffer = Buffer(size *= 2)
+        oldbuf.copy(buffer)
+      }
     },
 
     flush: function() {
@@ -113,7 +118,7 @@ HTTPParser.prototype.execute = function(data, start) {
         this.reinitialize()
       }
     }
-  } else if (this.stage === 2) {
+  } else { //if (this.stage === 2) {
     if (value) {
       this[0](value.headers, this.url)
       this[3]()

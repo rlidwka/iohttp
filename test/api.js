@@ -32,5 +32,21 @@ describe('api', function() {
     ret = parser.execute('GET / HTTP/1.0\n\n')
     assert.equal(ret.message, 'Invalid HTTP method')
   })
+
+  it('arbitrary long strings', function(done) {
+    var param = [ '/' ]
+    for (var i=0; i<20000; i++) {
+      param.push(i % 10)
+    }
+    param = param.join('')
+
+    var parser = new HTTPParser(HTTPParser.REQUEST)
+    parser[1] = function(arg) {
+      assert.equal(arg.url, param)
+      process.nextTick(done)
+    }
+    var ret = parser.execute(Buffer('GET ' + param + ' HTTP/1.0\n\n'))
+    assert.equal(ret, 20016)
+  })
 })
 
