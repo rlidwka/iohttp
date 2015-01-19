@@ -26,16 +26,14 @@ module.exports.parse_request = function* parse_request(writer, mode) {
   if (mode === 1 || mode === 2) {
     while (true) {
       ch = buf[pos]
-      if (ch === 0x0D) {
-        if (++pos >= len) next(yield)
+      if (ch === 0x0D || ch === 0x0A) {
+        if (ch === 0x0D) if (++pos >= len) next(yield)
         if (buf[pos] === 0x0A) {
           if (++pos >= len) next(yield)
           continue
         }
-      } else if (ch === 0x0A) {
-        if (++pos >= len) next(yield)
-        continue
       }
+
       break
     }
   }
@@ -252,15 +250,11 @@ module.exports.parse_request = function* parse_request(writer, mode) {
 
     if (!is_token[ch]) {
       // CRLF | LF
-      if (ch === 0x0D) {
-        if (++pos >= len) next(yield)
+      if (ch === 0x0D || ch === 0x0A) {
+        if (ch === 0x0D) if (++pos >= len) next(yield)
         if (buf[pos] === 0x0A) {
           break
-        } else { // only LF expected after CR
-          return Error('Invalid header')
         }
-      } else if (ch === 0x0A) {
-        break
       }
 
       // garbage
@@ -306,6 +300,9 @@ module.exports.parse_request = function* parse_request(writer, mode) {
             // not a folding, so ending the header
             break
           }
+        } else {
+          // CR without LF
+          break
         }
       }
 
@@ -446,29 +443,22 @@ module.exports.parse_body = function* parse_body(content_length) {
         } while (ch !== 0x0D && ch !== 0x0A)
       }
 
-      if (ch === 0x0D) {
-        if (++pos >= len) next(yield)
-        if (buf[pos] !== 0x0A) {
-          return Error('Invalid chunk')
-        }
-      } else if (ch !== 0x0A) {
+      if (ch === 0x0D) if (++pos >= len) next(yield)
+      if (buf[pos] !== 0x0A) {
         return Error('Invalid chunk')
       }
 
       if (length === 0) {
         if (++pos >= len) next(yield)
 
-        if (buf[pos] === 0x0D) {
-          if (++pos >= len) next(yield)
+        if (buf[pos] === 0x0D || buf[pos] === 0x0A) {
+          if (buf[pos] === 0x0D) if (++pos >= len) next(yield)
           if (buf[pos] === 0x0A) {
             buf.start = pos + 1
             return
           } else {
             return Error('Invalid trailer')
           }
-        } else if (buf[pos] === 0x0A) {
-          buf.start = pos + 1
-          return
         }
         buf.start = pos - 1
         return true
@@ -489,13 +479,11 @@ module.exports.parse_body = function* parse_body(content_length) {
       } while (length > 0)
 
       ch = buf[pos]
-      if (ch === 0x0D) {
-        if (++pos >= len) next(yield)
+      if (ch === 0x0D || ch === 0x0A) {
+        if (ch === 0x0D) if (++pos >= len) next(yield)
         if (buf[pos] !== 0x0A) {
           return Error('Invalid chunk')
         }
-      } else if (ch !== 0x0A) {
-        return Error('Invalid chunk')
       }
       if (++pos >= len) next(yield)
     }
