@@ -26,6 +26,12 @@ describe('body chunked', function() {
     execute('GET / HTTP/1.1\ntransfer-encoding: chunked\n\n0\n\n')
   })
 
+  it('uppercase stuff', function() {
+    expect(1, { method: 1, headers: [ 'transfer-encoding', 'CHUNKED' ] })
+    expect(3, undefined)
+    execute('GET / HTTP/1.1\ntransfer-ENCODING: CHUNKED\n\n0\n\n')
+  })
+
   it('multiple requests', function() {
     expect(1, { url: '/1' })
     expect(3, undefined)

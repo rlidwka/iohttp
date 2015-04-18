@@ -326,7 +326,7 @@ module.exports.parse_request = function* parse_request(writer, mode) {
         if (t.match(/^ *\d+ *$/)) result.contentLength = parseInt(t, 10)
         break
       case 'transfer-encoding':
-        if (t === 'chunked') result.contentLength = -1
+        if (t.toLowerCase() === 'chunked') result.contentLength = -1
         break
       case 'connection':
       case 'proxy-connection':
