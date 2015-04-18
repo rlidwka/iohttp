@@ -1,5 +1,13 @@
-var parse_request = require('./parser').parse_request
-var parse_body = require('./parser').parse_body
+try {
+  var parse_request = require('./parser').parse_request
+  var parse_body = require('./parser').parse_body
+} catch (err) {
+  if (!err.message.match(/no such native module/i)) throw err
+
+  // in case this parser is embedded into io.js
+  parse_request = require('iohttp/parser').parse_request
+  parse_body = require('iohttp/parser').parse_body
+}
 
 module.exports = HTTPParser
 
