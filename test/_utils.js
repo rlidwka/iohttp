@@ -13,8 +13,19 @@ module.exports.testFactory = function(defaults) {
 
     var responded = false
     var parser = new HTTPParser(HTTPParser.REQUEST)
-    parser[1] = function(parsed) {
-      assert.deepEqual(_expect, parsed)
+    parser[1] = function() {
+      //assert.deepEqual(_expect, parsed)
+      assert.deepEqual(_expect, {
+        versionMajor    : arguments[0],
+        versionMinor    : arguments[1],
+        headers         : arguments[2],
+        method          : arguments[3],
+        url             : arguments[4],
+        statusCode      : arguments[5],
+        statusMessage   : arguments[6],
+        upgrade         : arguments[7],
+        shouldKeepAlive : arguments[8],
+      })
       responded = true
     }
 
@@ -43,7 +54,23 @@ module.exports.reset = function reset(mode, def_1) {
   parser[0] = function(parsed) {
     received_obj.push({0: parsed})
   }
-  parser[1] = function(parsed) {
+  parser[1] = function() {
+    var parsed = {
+      versionMajor    : arguments[0],
+      versionMinor    : arguments[1],
+      headers         : arguments[2],
+      method          : arguments[3],
+      url             : arguments[4],
+      statusCode      : arguments[5],
+      statusMessage   : arguments[6],
+      upgrade         : arguments[7],
+      shouldKeepAlive : arguments[8],
+    }
+
+    Object.keys(parsed).forEach(function (k) {
+      if (parsed[k] === undefined) delete parsed[k]
+    })
+
     received_obj.push({1: parsed})
   }
   parser[2] = function(parsed) {

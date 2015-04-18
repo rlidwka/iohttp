@@ -4,7 +4,6 @@ var execute    = require('./_utils').execute
 
 var defaults = {
   method          : 1,
-  methodString    : 'GET',
   url             : '/',
   versionMajor    : 1,
   versionMinor    : 1,
@@ -12,7 +11,6 @@ var defaults = {
     'Host',
     'iojs.org',
   ],
-  contentLength   : 0,
   shouldKeepAlive : true,
   upgrade         : false,
 }

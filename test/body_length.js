@@ -4,7 +4,6 @@ var execute    = require('./_utils').execute
 
 var defaults = {
   method          : 3,
-  methodString    : 'POST',
   url             : '/',
   versionMajor    : 1,
   versionMinor    : 1,
@@ -12,7 +11,6 @@ var defaults = {
     'Content-Length',
     '5',
   ],
-  contentLength   : 5,
   shouldKeepAlive : true,
   upgrade         : false,
 }
@@ -23,7 +21,7 @@ describe('body length', function() {
   })
 
   it('simple request', function() {
-    expect(1, { method: 1, methodString: 'GET', contentLength: 0, headers: [ 'content-length', '0' ] })
+    expect(1, { method: 1, headers: [ 'content-length', '0' ] })
     expect(3, undefined)
     execute('GET / HTTP/1.1\ncontent-length: 0\n\n')
   })

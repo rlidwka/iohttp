@@ -4,7 +4,6 @@ var execute    = require('./_utils').execute
 
 var defaults = {
   method          : 3,
-  methodString    : 'POST',
   url             : '/',
   versionMajor    : 1,
   versionMinor    : 1,
@@ -12,7 +11,6 @@ var defaults = {
     'Transfer-Encoding',
     'chunked',
   ],
-  contentLength   : -1,
   shouldKeepAlive : true,
   upgrade         : false,
 }
@@ -23,7 +21,7 @@ describe('body chunked', function() {
   })
 
   it('simple request', function() {
-    expect(1, { method: 1, methodString: 'GET', headers: [ 'transfer-encoding', 'chunked' ] })
+    expect(1, { method: 1, headers: [ 'transfer-encoding', 'chunked' ] })
     expect(3, undefined)
     execute('GET / HTTP/1.1\ntransfer-encoding: chunked\n\n0\n\n')
   })

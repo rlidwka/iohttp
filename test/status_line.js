@@ -8,7 +8,6 @@ var defaults = {
   versionMajor    : 1,
   versionMinor    : 0,
   headers         : [],
-  contentLength   : Infinity,
   shouldKeepAlive : false,
   upgrade         : false,
 }

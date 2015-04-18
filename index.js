@@ -100,7 +100,11 @@ HTTPParser.prototype.execute = function(data, start) {
       if (value.upgrade) this.upgraded = true
 
       var len = value.contentLength
-      this[1](value)
+
+      this[1](value.versionMajor, value.versionMinor, value.headers,
+              value.method, value.url, value.statusCode, value.statusMessage,
+              value.upgrade, value.shouldKeepAlive)
+
       this.url = value.url
       if (!len) {
         this[3]()

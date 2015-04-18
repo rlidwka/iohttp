@@ -557,8 +557,6 @@ function add(name, test) {
     builtin[3] = function(){ expected.push({ 3: arguments }) }
     testing[0] = function(){ received.push({ 0: arguments }) }
     testing[1] = function(arg) {
-      delete arg.contentLength
-      delete arg.methodString
       received.push({ 1: arg })
     }
     testing[2] = function(buf) {

@@ -4,12 +4,10 @@ var execute    = require('./_utils').execute
 
 var defaults = {
   method          : 1,
-  methodString    : 'GET',
   url             : '/',
   versionMajor    : 1,
   versionMinor    : 0,
   headers         : [],
-  contentLength   : 0,
   shouldKeepAlive : false,
   upgrade         : false,
 }
@@ -26,7 +24,7 @@ describe('request line', function() {
   })
 
   it('options', function() {
-    expect(1, { method: 6, methodString: 'OPTIONS', url: '*' })
+    expect(1, { method: 6, url: '*' })
     expect(3, undefined)
     execute('OPTIONS * HTTP/1.0\n\n')
   })
@@ -190,12 +188,13 @@ describe('request line', function() {
 
   it('binary crap - 1', function() {
     expect(Error('Invalid HTTP method'))
-    execute([Buffer(0xff)])
+debugger
+    execute([Buffer([0xff])])
   })
 
   it('binary crap - 2', function() {
     expect(Error('Invalid HTTP method'))
-    execute([Buffer(0x00)])
+    execute([Buffer([0x00])])
   })
 
   it('good old http', function() {

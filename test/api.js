@@ -41,8 +41,8 @@ describe('api', function() {
     param = param.join('')
 
     var parser = new HTTPParser(HTTPParser.REQUEST)
-    parser[1] = function(arg) {
-      assert.equal(arg.url, param)
+    parser[1] = function(_, _, _, _, url) {
+      assert.equal(url, param)
       process.nextTick(done)
     }
     var ret = parser.execute(Buffer('GET ' + param + ' HTTP/1.0\n\n'))
