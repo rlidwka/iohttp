@@ -100,6 +100,126 @@ You can reuse already created parser for a new connection using `reinitialize` m
 parser.reinitialize(type)
 ```
 
+## Performance
+
+On `io.js-1.1.1` it is 2-3 times slower than built-in parser (see `bench.js`):
+
+```
+$ node bench.js 
+ourstuff: 3937ms
+built-in: 1744ms
+```
+
+We use at most two generators per each request, one for parsing headers and one for parsing content body (if present).
+
+As of now, generator execution is fast enough for this idea to work. Creating generators is slow (that's why we try to limit it), and I found delegation (`yield*`) to be very slow (one `yield*` slowed down parsing by 50%).
+
+The original idea was to spin off a generator for every input line, but unfortunately v8 is not fast enough for this yet.
+
+## Backward compatibility
+
+This parser is written following [RFC 7230](http://tools.ietf.org/html/rfc7230) standard. But it turned out to be too strict for practical purposes.
+
+So special care was taken to ensure that it is backward compatible with existing http parser in io.js.
+
+**Every joyent/http-parser test passes**. Except for parsing URLs, see below.
+
+For example, these http-parser quirks were re-implemented here:
+
+ - you can use `LF` instead of `CRLF` at the end of any line
+ - in the request line (like `GET / HTTP/1.0`) parser allows multiple spaces between method, path and protocol
+ - in the request line non-ascii characters are allowed in path (like `GET /hélló HTTP/1.0`)
+ - in the header values spaces are allowed (e.g. `Accept: foo bar`) is parsed as a valid header
+
+One difference is: joyent/http-parser allows HTTP version numbers to be up to 3 digits (i.e. `HTTP/XXX.YYY`), but we limit it to 1 digit. There are no tests for that, and nobody here is going to live long enough for it to matter anyway.
+
+Also, just like joyent/http parser, this parser processes input byte by byte and throws an error whenever a byte that breaks the protocol comes in. So when a malformed random string without CRLF comes in, server is able to report an error at the first bad character, and won't have to buffer the whole thing. This also might be important when you're debugging something using low-level tools to see an error just after it happens, so you can figure out which character is causing it.
+
+## The missing part
+
+This module does not parse urls in path to ensure they are valid. For example, `GET foo://bar` is valid request, but `GET foo:bar` isn't.
+
+I think we should use one of the existing URL parsers for this instead of re-inventing the wheel. So currently any path is considered valid.
+
+Funny side effect: `hello world\n` is parsed as a **valid** http request. Here "hello" is considered HTTP method (it'll be discarded as invalid later), "world" is considered path, and entire thing looks like a HTTP/0.9 request.
+
+## Generator-based streaming parser concept
+
+Because generators are ~~for the cool guys~~ doing the same job as state machines, but a lot easier to use.
+
+For example, original http parser is a state machine. Essentially every character could correspond to a different state. Here is why:
+
+Suppose you're parsing `HTTP/X.Y`. There is a naive way of doing this:
+
+```js
+if (str[0] === 'H' && str[1] === 'T' && ...) {}
+```
+
+Well, turns out you can't do this 'cause `T` could be in the next packet!
+
+So streaming parsers are usually a state machines that look like:
+
+```js
+function next_char(c) {
+  switch (state) {
+    case 'parsing_H':
+      if (c !== 'H') throw Error('bad protocol')
+      state = 'parsing_HT'
+      break
+    case 'parsing_HT':
+      if (c !== 'T') throw Error('bad protocol')
+      state = 'parsing_HTT'
+      break
+    case 'parsing_HTT':
+      if (c !== 'T') throw Error('bad protocol')
+      throw Error("i'm so tired of writing this")
+  }
+}
+```
+
+This function is a simplification, but the basic idea is the same. It interrupts its control flow after each character, and you call it again when the next character is available.
+
+Don't believe me? Well, [here](https://github.com/joyent/http-parser/blob/5d414fcb4b2ccc1ce9d6063292f9c63c9ec67b04/http_parser.c#L772-L790) is what io.js is using right now.
+
+If only there was a mechanism to interrupt control flow of a function without quirks like this... oh wait
+
+But that's exactly what generators do!
+
+```js
+function parse_http() {
+  if (!(yield === 'H' || yield === 'T' || yield === 'T' || yield === 'P')) {
+    throw Error('bad protocol')
+  }
+  return 'all sounds good'
+}
+```
+
+This is the basic idea.
+
+Of course in the real life triggering generators on each character is a waste, but we can develop this idea further to work with chunks instead of characters. And that's exactly what this parser [does](https://github.com/rlidwka/iohttp/blob/d8dde4e3eb972c7658aaf1c1046f4350393a2e81/parser.js#L90-L94):
+
+```js
+var pos, len, buf, ch
+function next(b) { pos = b.start, len = b.length, buf = b }
+
+if (buf[pos] !== 0x48 /* H */) throw err ; if (++pos >= len) next(yield)
+if (buf[pos] !== 0x54 /* T */) throw err ; if (++pos >= len) next(yield)
+if (buf[pos] !== 0x54 /* T */) throw err ; if (++pos >= len) next(yield)
+if (buf[pos] !== 0x50 /* P */) throw err ; if (++pos >= len) next(yield)
+if (buf[pos] !== 0x2f /* / */) throw err ; if (++pos >= len) next(yield)
+
+/* if we're here, protocol is parsed */
+```
+
+Current character is always placed in `buf[pos]`. And when you want to get next one, you call `if (++pos >= len) next(yield)`, after which `buf[pos]` will contain the new character. And the `next()` function takes care of changing local variables for the new chunk if we're at the end.
+
+## Use-cases
+
+You can use custom HTTP methods with this. The [pull request](https://github.com/joyent/http-parser/pull/158) allowing it in node.js never landed, but with this parser it's easy since HTTP methods are not hardcoded anywhere in the state machine. Just add one to the exported array of methods.
+
+You can also use this parser in browsers, since it's all javascript. Do you like to try using HTTP inside WebSockets inside HTTP? Well, now you can!
+
+
 ## License
 
 [MIT](LICENSE)
