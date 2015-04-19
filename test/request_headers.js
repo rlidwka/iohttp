@@ -53,7 +53,13 @@ describe('request headers', function() {
   it('after-header-thing', function() {
     // but whyyyyy... it looks almost like a colon
     expect(Error('Invalid header'))
-    execute('GET / HTTP/1.1\nHost! iojs.org\n', Error('Invalid header'))
+    execute('GET / HTTP/1.1\nHost! iojs.org\n')
+  })
+
+  it('blank header', function() {
+    expect(1, { headers: [ 'Cookie', '', 'Warning', 'nocookies4u' ] })
+    expect(3, undefined)
+    execute('GET / HTTP/1.1\nCookie:\nWarning: nocookies4u\n\n')
   })
 
   it('ws - 1', function() {
@@ -103,6 +109,12 @@ describe('request headers', function() {
     expect(1, { url: '/woohoo', versionMajor: 0, versionMinor: 9, shouldKeepAlive: false })
     expect(3, undefined)
     execute('GET /woohoo\nHost: iojs.org\nfoo: bar\n\n')
+  })
+
+  it('normal request', function() {
+    expect(1, { headers: [ 'Host', 'iojs.org', 'Upgrade', 'yep' ], upgrade: true })
+    expect(3, undefined)
+    execute('GET / HTTP/1.1\nHost: iojs.org\nUpgrade: yep\n\n')
   })
 })
 

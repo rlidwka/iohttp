@@ -334,6 +334,9 @@ module.exports.parse_request = function* parse_request(writer, mode) {
         if (t.match(/(^|,)\s*close\s*(,|$)/i))      conn_close = true
         if (t.match(/(^|,)\s*upgrade\s*(,|$)/i))    result.upgrade = true
         break
+      case 'upgrade':
+        result.upgrade = true
+        break
     }
   }
 
