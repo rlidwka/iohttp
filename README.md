@@ -31,7 +31,7 @@ This example shows how to get headers out of HTTP request. See full API informat
 If you want to use this parser with the standard io.js HTTP server, you can monkey-patch io.js to use this parser instead of built-in one.
 
 ```js
-process.binding('http_parser').HTTPParser = require('iohttp').HTTPParser
+process.binding('http_parser').HTTPParser = require('iohttp')
 
 require('http').createServer(function(req, res) {
   res.end("Hello World!")
